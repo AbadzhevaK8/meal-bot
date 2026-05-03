@@ -201,7 +201,7 @@ async def cmd_report(message: Message) -> None:
         await message.answer("За сегодня записей нет.")
 
 
-@dp.message(F.text & F.text.func(lambda t: not t.startswith("/")))
+@dp.message(F.text & F.text.func(lambda t: t is not None and not t.startswith("/")))
 async def handle_text_message(message: Message) -> None:
     logger.info("Text message received by user_id=%s text=%s", message.from_user.id, message.text)
     
