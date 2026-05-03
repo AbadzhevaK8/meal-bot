@@ -1,0 +1,39 @@
+import os
+from dataclasses import dataclass, field
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+
+@dataclass
+class Config:
+    BOT_TOKEN: str
+    GROQ_API_KEY: str
+    GOOGLE_SHEETS_ID: str | None = None
+    GOOGLE_CREDENTIALS_JSON: str | None = None
+    TIMEZONE: str = "Europe/Moscow"
+    ACCESS_PASSWORD: str | None = None
+    REPORT_USER_IDS: list = field(default_factory=list)
+    DEEPSEEK_API_KEY: str | None = None
+    DEEPSEEK_API_URL: str | None = None
+
+
+def load_config() -> Config:
+    # Загружаем .env файл, если он есть рядом
+    env_path = Path(__file__).parent / ".env"
+    if env_path.exists():
+        load_dotenv(env_path)
+
+    return Config(
+        BOT_TOKEN=os.environ["BOT_TOKEN"],
+        GROQ_API_KEY=os.environ["GROQ_API_KEY"],
+        GOOGLE_SHEETS_ID=os.getenv("GOOGLE_SHEETS_ID"),
+        GOOGLE_CREDENTIALS_JSON=os.getenv("GOOGLE_CREDENTIALS_JSON"),
+        TIMEZONE=os.getenv("TIMEZONE", "Europe/Moscow"),
+        ACCESS_PASSWORD=os.getenv("ACCESS_PASSWORD"),
+        REPORT_USER_IDS=[
+            int(x) for x in os.getenv("REPORT_USER_IDS", "").split(",") if x.strip()
+        ],
+        DEEPSEEK_API_KEY=os.getenv("DEEPSEEK_API_KEY"),
+        DEEPSEEK_API_URL=os.getenv("DEEPSEEK_API_URL"),
+    )

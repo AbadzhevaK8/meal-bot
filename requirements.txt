@@ -1,0 +1,9 @@
+aiogram==3.18.0
+apscheduler==3.10.4
+groq==0.25.0
+gspread==6.2.0
+google-auth==2.38.0
+pytz==2025.2
+python-dotenv==1.2.2
+Pillow==12.2.0
+openai>=1.0.0
