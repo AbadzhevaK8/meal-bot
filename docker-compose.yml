@@ -3,6 +3,8 @@ services:
     build: .
     restart: unless-stopped
     env_file: .env
+    ports:
+      - "8080:8080"
     volumes:
       - ./n8n-work-mails-243114c65263.json:/app/n8n-work-mails-243114c65263.json:ro
       - ./auth_users.json:/app/auth_users.json

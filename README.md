@@ -36,6 +36,10 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
+При этом внутренняя служба ботa поднимается на порту `8080`, поэтому
+`https://medina.garum.tech/oauth2callback` должен быть проксирован на
+`http://localhost:8080/oauth2callback` или проброшен через Docker.
+
 ### 4. Или локально
 
 ```bash
@@ -52,6 +56,8 @@ python bot.py
 | `/today` | Статистика за сегодня |
 | `/report` | Подробный отчёт БЖУ за сегодня |
 | `/delete` | Удалить последнюю запись |
+| `/fitness_auth` | Ссылка для авторизации Google Fitness |
+| `/fitness_status` | Проверить статус Google Fitness авторизации |
 | `/help` | Справка по командам |
 
 ## Структура таблицы
@@ -87,12 +93,23 @@ DEEPSEEK_API_KEY=ключ_deepseek_api (опционально)
 DEEPSEEK_API_URL=https://api.deepseek.com
 GOOGLE_SHEETS_ID=id_таблицы
 GOOGLE_CREDENTIALS_JSON=путь_к_json_ключу
+GOOGLE_OAUTH_CLIENT_ID=client_id_from_google
+GOOGLE_OAUTH_CLIENT_SECRET=client_secret_from_google
+GOOGLE_REDIRECT_URI=https://medina.garum.tech/oauth2callback
+WEB_PORT=8080
 TIMEZONE=Europe/Moscow
 ACCESS_PASSWORD=пароль_доступа
 REPORT_USER_IDS=id_пользователей_через_запятую
 ```
 
+> Для работы Google OAuth callback URL должен быть доступен по HTTPS: `https://medina.garum.tech/oauth2callback`.
+
 ## Деплой
+
+Если вы запускаете бот через Docker, то контейнер мапится на порт `8080`.
+Для внешнего HTTPS-доступа нужен nginx-прокси на `medina.garum.tech`, который будет перенаправлять запросы к боту.
+
+Пример nginx-конфига см. `nginx-proxy-example.conf`.
 
 Смотри `docker-compose.yml` и `Dockerfile`. 
 

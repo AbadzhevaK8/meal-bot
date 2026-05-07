@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime
 
+from google_fitness import fetch_daily_calories_for_date
 from pytz import timezone
 
 from sheets import get_today_logs
@@ -43,6 +44,14 @@ def build_daily_report(user_id: int, tz: str = "Europe/Moscow") -> str | None:
     total_fat = sum(float(r.get("fat_g", 0) or 0) for r in records)
     total_carbs = sum(float(r.get("carbs_g", 0) or 0) for r in records)
 
+    total_burned = 0.0
+    burned_note = ""
+    try:
+        now = datetime.now(timezone(tz))
+        total_burned = fetch_daily_calories_for_date(now.date(), tz)
+    except Exception as e:
+        burned_note = f" (не удалось получить из Google Fit: {e})"
+
     if total_kcal > 0:
         pct_protein = (total_protein * PROTEIN_KCAL / total_kcal) * 100
         pct_fat = (total_fat * FAT_KCAL / total_kcal) * 100
@@ -65,7 +74,9 @@ def build_daily_report(user_id: int, tz: str = "Europe/Moscow") -> str | None:
 
     lines += [
         "",
-        f"🔥 <b>Итого: {int(total_kcal)} ккал</b>",
+        f"🔥 <b>Итого съедено: {int(total_kcal)} ккал</b>",
+        f"🔥 <b>Сожжено: {int(total_burned)} ккал</b>{burned_note}",
+        f"⚖️ Разница: {int(total_kcal - total_burned)} ккал",
         f"  🥩 {int(total_protein)}г  🧈 {int(total_fat)}г  🍞 {int(total_carbs)}г",
         "",
         "📐 <b>БЖУ (% от калорийности):</b>",

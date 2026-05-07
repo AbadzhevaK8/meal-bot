@@ -16,13 +16,17 @@ class Config:
     REPORT_USER_IDS: list = field(default_factory=list)
     DEEPSEEK_API_KEY: str | None = None
     DEEPSEEK_API_URL: str | None = None
+    GOOGLE_OAUTH_CLIENT_ID: str | None = None
+    GOOGLE_OAUTH_CLIENT_SECRET: str | None = None
+    GOOGLE_REDIRECT_URI: str | None = None
+    WEB_PORT: int = 8080
 
 
 def load_config() -> Config:
     # Загружаем .env файл, если он есть рядом
     env_path = Path(__file__).parent / ".env"
     if env_path.exists():
-        load_dotenv(env_path)
+        load_dotenv(env_path, override=True)
 
     return Config(
         BOT_TOKEN=os.environ["BOT_TOKEN"],
@@ -36,4 +40,8 @@ def load_config() -> Config:
         ],
         DEEPSEEK_API_KEY=os.getenv("DEEPSEEK_API_KEY"),
         DEEPSEEK_API_URL=os.getenv("DEEPSEEK_API_URL"),
+        GOOGLE_OAUTH_CLIENT_ID=os.getenv("GOOGLE_OAUTH_CLIENT_ID"),
+        GOOGLE_OAUTH_CLIENT_SECRET=os.getenv("GOOGLE_OAUTH_CLIENT_SECRET"),
+        GOOGLE_REDIRECT_URI=os.getenv("GOOGLE_REDIRECT_URI"),
+        WEB_PORT=int(os.getenv("WEB_PORT", "8080")),
     )

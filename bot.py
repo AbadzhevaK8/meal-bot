@@ -1,19 +1,35 @@
+import asyncio
 import json
 import logging
 import re
 import sys
+from datetime import datetime, timedelta
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT))
+
+from aiohttp import web
 from aiogram import Bot, Dispatcher, F, types, exceptions
 from aiogram.filters import Command
 from aiogram.types import Message
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from config import load_config
+from pytz import timezone
 from deepseek import analyze_text_food
+from google_fitness import (
+    build_authorization_url,
+    exchange_code_for_tokens,
+    fetch_daily_calories,
+    fetch_daily_calories_for_date,
+    get_tokens_status,
+    has_saved_tokens,
+    sync_fitness_rows,
+)
 from groq_vision import analyze_food as analyze_image_food
 from report import build_daily_report
-from sheets import delete_last_meal, get_today_logs, log_meal
+from sheets import delete_last_meal, get_logs_for_date, get_today_logs, log_daily_calories, log_meal
 
 log_file = Path(__file__).parent / "bot.log"
 logging.basicConfig(
@@ -58,6 +74,48 @@ def save_authenticated_user(user_id: int) -> None:
         logger.info("Saved user %s to auth file", user_id)
     except Exception as e:
         logger.exception("Failed to save auth file: %s", e)
+
+
+async def oauth2_callback(request: web.Request) -> web.Response:
+    code = request.query.get("code")
+    if not code:
+        return web.Response(text="Missing code parameter", status=400)
+
+    try:
+        tokens = await asyncio.to_thread(exchange_code_for_tokens, code)
+        logger.info("Google Fitness authorization completed")
+        return web.Response(
+            text=(
+                "Авторизация Google Fitness завершена.<br>"
+                "Токен сохранён. Можно закрыть это окно."
+            ),
+            content_type="text/html",
+        )
+    except Exception as e:
+        logger.exception("OAuth callback failed: %s", e)
+        return web.Response(
+            text=f"Ошибка авторизации: {e}",
+            status=500,
+            content_type="text/html",
+        )
+
+
+async def health(request: web.Request) -> web.Response:
+    return web.Response(text="ok")
+
+
+async def start_web_server() -> None:
+    app = web.Application()
+    app.add_routes([
+        web.get("/oauth2callback", oauth2_callback),
+        web.get("/health", health),
+    ])
+    runner = web.AppRunner(app)
+    await runner.setup()
+    port = config.WEB_PORT
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
+    logger.info("Web server started on port %s", port)
 
 
 def get_keyboard(is_auth: bool) -> types.ReplyKeyboardMarkup:
@@ -106,7 +164,9 @@ async def cmd_help(message: Message) -> None:
             "Вот доступные команды:\n"
             "/today — краткий итог за сегодня\n"
             "/report — подробный отчёт БЖУ за сегодня\n"
-            "/delete — удалить последнюю запись"
+            "/delete — удалить последнюю запись\n"
+            "/fitness_auth — ссылка для авторизации Google Fitness\n"
+            "/fitness_status — статус Google Fitness авторизации"
         )
     else:
         text = (
@@ -149,6 +209,43 @@ async def cmd_login(message: Message) -> None:
         await message.answer("❌ Неверный пароль.")
 
 
+@dp.message(Command("fitness_auth"))
+async def cmd_fitness_auth(message: Message) -> None:
+    if not await require_auth(message):
+        return
+
+    if not config.GOOGLE_OAUTH_CLIENT_ID or not config.GOOGLE_OAUTH_CLIENT_SECRET or not config.GOOGLE_REDIRECT_URI:
+        await message.answer(
+            "Ошибка настройки Google Fitness. Проверьте GOOGLE_OAUTH_CLIENT_ID, "
+            "GOOGLE_OAUTH_CLIENT_SECRET и GOOGLE_REDIRECT_URI в config.py."
+        )
+        return
+
+    auth_url = build_authorization_url(config.GOOGLE_REDIRECT_URI, config.GOOGLE_OAUTH_CLIENT_ID)
+    await message.answer(
+        "Перейдите по этой ссылке и завершите авторизацию Google Fitness:\n"
+        f"{auth_url}",
+        disable_web_page_preview=True,
+    )
+
+
+@dp.message(Command("fitness_status"))
+async def cmd_fitness_status(message: Message) -> None:
+    if not await require_auth(message):
+        return
+
+    status = get_tokens_status()
+    if status is None:
+        await message.answer(
+            "Google Fitness не подключён. Выполните /fitness_auth, чтобы авторизовать доступ."
+        )
+    else:
+        await message.answer(
+            "Google Fitness подключён.\n"
+            f"Статус: {status}"
+        )
+
+
 @dp.message(Command("today"))
 async def cmd_today(message: Message) -> None:
     logger.info("Today requested by user_id=%s", message.from_user.id)
@@ -158,9 +255,13 @@ async def cmd_today(message: Message) -> None:
     user_id = message.from_user.id
     records = get_today_logs(user_id, tz=config.TIMEZONE)
 
-    if not records:
-        await message.answer("За сегодня записей нет.")
-        return
+    today = datetime.now(timezone(config.TIMEZONE)).date()
+    burned = 0.0
+    burned_note = ""
+    try:
+        burned = fetch_daily_calories_for_date(today, config.TIMEZONE)
+    except Exception as e:
+        burned_note = f" (не удалось получить из Google Fit: {e})"
 
     total_kcal = sum(float(r.get("kcal", 0) or 0) for r in records)
     total_protein = sum(float(r.get("protein_g", 0) or 0) for r in records)
@@ -169,8 +270,9 @@ async def cmd_today(message: Message) -> None:
 
     lines = [
         "📊 За сегодня:",
-        f"🔥 {int(total_kcal)} ккал",
-        f"🥩 Б: {int(total_protein)}г  🧈 Ж: {int(total_fat)}г  🍞 У: {int(total_carbs)}г",
+        f"🔥 Съедено: {int(total_kcal)} ккал",
+        f"🔥 Сожжено: {int(burned)} ккал{burned_note}",
+        f"⚖️ Разница: {int(total_kcal - burned)} ккал",
         "",
         "Приёмы пищи:",
     ]
@@ -448,6 +550,30 @@ async def send_daily_reports() -> None:
             logger.exception("Ошибка отправки отчёта user_id=%s: %s", user_id, e)
 
 
+async def send_daily_fitness_ingestion() -> None:
+    try:
+        end_date = datetime.now(timezone(config.TIMEZONE)).date() - timedelta(days=1)
+        start_date = end_date - timedelta(days=6)
+
+        logger.info("Syncing fitness and daily calories from %s to %s", start_date, end_date)
+
+        await asyncio.to_thread(sync_fitness_rows, start_date, end_date, config.TIMEZONE)
+
+        import aggregate_daily_calories
+
+        await asyncio.to_thread(
+            aggregate_daily_calories.main,
+            start_date,
+            end_date,
+            False,
+            None,
+        )
+
+        logger.info("Daily Google Fitness calories ingested and daily_calories synced: %s..%s", start_date, end_date)
+    except Exception as e:
+        logger.exception("Failed to sync daily fitness and calories: %s", e)
+
+
 async def main() -> None:
     load_authenticated_users()
 
@@ -457,11 +583,16 @@ async def main() -> None:
         types.BotCommand(command="today", description="Итог за сегодня"),
         types.BotCommand(command="report", description="Отчёт за сегодня"),
         types.BotCommand(command="delete", description="Удалить последнюю запись"),
+        types.BotCommand(command="fitness_auth", description="Авторизовать Google Fitness"),
+        types.BotCommand(command="fitness_status", description="Статус Google Fitness"),
         types.BotCommand(command="help", description="Помощь"),
     ])
 
+    await start_web_server()
+
     scheduler = AsyncIOScheduler(timezone=config.TIMEZONE)
     scheduler.add_job(send_daily_reports, "cron", hour=23, minute=0)
+    scheduler.add_job(send_daily_fitness_ingestion, "cron", hour="0,6,12,18", minute=0)
     scheduler.start()
 
     logger.info("Бот запущен")

@@ -29,9 +29,89 @@ DEEPSEEK_API_KEY=ваш_deepseek_ключ
 DEEPSEEK_API_URL=https://api.deepseek.com
 GOOGLE_SHEETS_ID=id_вашей_таблицы
 GOOGLE_CREDENTIALS_JSON=credentials.json
+GOOGLE_OAUTH_CLIENT_ID=ваш_google_oauth_client_id
+GOOGLE_OAUTH_CLIENT_SECRET=ваш_google_oauth_client_secret
+GOOGLE_REDIRECT_URI=https://medina.garum.tech/oauth2callback
+WEB_PORT=8080
 TIMEZONE=Europe/Moscow
 ACCESS_PASSWORD=ваш_пароль
 REPORT_USER_IDS=ваш_telegram_id
+```
+
+> Если вы используете Google OAuth, callback URL должен быть именно `https://medina.garum.tech/oauth2callback`.
+>
+> В контейнере бот слушает на `http://127.0.0.1:8080`, а снаружи HTTPS-терминатор должен проксировать запросы на этот порт.
+
+### 3. Production nginx-прокси на VPS
+
+На продовом сервере с IP `89.125.87.213` настройте nginx и SSL для домена `medina.garum.tech`.
+
+1. Установите nginx и certbot:
+
+```bash
+apt update && apt install -y nginx certbot python3-certbot-nginx
+```
+
+2. Создайте nginx-конфигурацию, например `/etc/nginx/sites-available/meal_bot.conf`:
+
+```nginx
+server {
+    listen 80;
+    server_name medina.garum.tech;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name medina.garum.tech;
+
+    ssl_certificate /etc/letsencrypt/live/medina.garum.tech/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/medina.garum.tech/privkey.pem;
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:SSL:10m;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+
+    location /oauth2callback {
+        proxy_pass http://127.0.0.1:8080/oauth2callback;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+3. Включите конфигурацию и проверьте nginx:
+
+```bash
+ln -sf /etc/nginx/sites-available/meal_bot.conf /etc/nginx/sites-enabled/
+nginx -t
+systemctl restart nginx
+```
+
+4. Выполните получение сертификата:
+
+```bash
+certbot --nginx -d medina.garum.tech
+```
+
+5. После этого `https://medina.garum.tech/oauth2callback` будет проксироваться на `http://127.0.0.1:8080/oauth2callback`.
+
+Если DNS `medina.garum.tech` ещё не указывает на сервер, настройте A-запись у регистратора на `89.125.87.213`.
+
+## 4. Деплой через Docker (рекомендуется)
+
+```bash
+docker compose up -d --build
 ```
 
 ### 3. Деплой через Docker (рекомендуется)
