@@ -21,6 +21,7 @@ from deepseek import analyze_text_food
 from google_fitness import (
     build_authorization_url,
     exchange_code_for_tokens,
+    fetch_calories_since_midnight,
     fetch_daily_calories,
     fetch_daily_calories_for_date,
     get_tokens_status,
@@ -259,9 +260,9 @@ async def cmd_today(message: Message) -> None:
     burned = 0.0
     burned_note = ""
     try:
-        burned = fetch_daily_calories_for_date(today, config.TIMEZONE)
+        burned = fetch_calories_since_midnight(config.TIMEZONE)
     except Exception as e:
-        burned_note = f" (не удалось получить из Google Fit: {e})"
+        burned_note = f" (не удалось получить текущие данные из Google Fit: {e})"
 
     total_kcal = sum(float(r.get("kcal", 0) or 0) for r in records)
     total_protein = sum(float(r.get("protein_g", 0) or 0) for r in records)
@@ -271,7 +272,7 @@ async def cmd_today(message: Message) -> None:
     lines = [
         "📊 За сегодня:",
         f"🔥 Съедено: {int(total_kcal)} ккал",
-        f"🔥 Сожжено: {int(burned)} ккал{burned_note}",
+        f"🔥 Сожжено на момент вызова: {int(burned)} ккал{burned_note}",
         f"⚖️ Разница: {int(total_kcal - burned)} ккал",
         "",
         "Приёмы пищи:",
@@ -296,11 +297,12 @@ async def cmd_report(message: Message) -> None:
         return
 
     user_id = message.from_user.id
-    text = build_daily_report(user_id, tz=config.TIMEZONE)
+    yesterday = datetime.now(timezone(config.TIMEZONE)).date() - timedelta(days=1)
+    text = build_daily_report(user_id, tz=config.TIMEZONE, target_date=yesterday)
     if text:
         await message.answer(text, parse_mode="HTML")
     else:
-        await message.answer("За сегодня записей нет.")
+        await message.answer(f"За {yesterday.day} {MONTHS_RU.get(yesterday.month, '')} записей нет.")
 
 
 @dp.message(F.text & F.text.func(lambda t: t is not None and not t.startswith("/")))
@@ -539,13 +541,15 @@ async def process_meal_image(
 
 
 async def send_daily_reports() -> None:
+    """Отправляет суточный отчёт за вчерашний день (запускается в 1:00 ночи)."""
+    yesterday = datetime.now(timezone(config.TIMEZONE)).date() - timedelta(days=1)
     for user_id in config.REPORT_USER_IDS:
         try:
-            text = build_daily_report(user_id, tz=config.TIMEZONE)
+            text = build_daily_report(user_id, tz=config.TIMEZONE, target_date=yesterday)
             if text:
                 await bot.send_message(user_id, text, parse_mode="HTML")
             else:
-                await bot.send_message(user_id, "За сегодня записей нет 🤷")
+                await bot.send_message(user_id, f"За {yesterday.day} {MONTHS_RU.get(yesterday.month, '')} записей нет 🤷")
         except Exception as e:
             logger.exception("Ошибка отправки отчёта user_id=%s: %s", user_id, e)
 
@@ -591,7 +595,7 @@ async def main() -> None:
     await start_web_server()
 
     scheduler = AsyncIOScheduler(timezone=config.TIMEZONE)
-    scheduler.add_job(send_daily_reports, "cron", hour=23, minute=0)
+    scheduler.add_job(send_daily_reports, "cron", hour=1, minute=0)
     scheduler.add_job(send_daily_fitness_ingestion, "cron", hour="0,6,12,18", minute=0)
     scheduler.start()
 

@@ -176,6 +176,17 @@ def fetch_daily_calories_for_date(date_value: datetime.date, tz_name: str = "Eur
     return _parse_calories(response)
 
 
+def fetch_calories_since_midnight(tz_name: str = "Europe/Moscow") -> float:
+    try:
+        tz = timezone(tz_name)
+    except Exception:
+        tz = timezone("UTC")
+    now = datetime.now(tz)
+    start = tz.localize(datetime(now.year, now.month, now.day, 0, 0, 0))
+    response = _aggregate_calories(int(start.timestamp() * 1000), int(now.timestamp() * 1000))
+    return _parse_calories(response)
+
+
 def fetch_calories_range(start_date: datetime.date, end_date: datetime.date, tz_name: str = "Europe/Moscow") -> dict[str, float]:
     """Fetch per-day calories between start_date and end_date inclusive."""
     results: dict[str, float] = {}

@@ -1,10 +1,10 @@
 import logging
-from datetime import datetime
+from datetime import date, datetime, timedelta
 
 from google_fitness import fetch_daily_calories_for_date
 from pytz import timezone
 
-from sheets import get_today_logs
+from sheets import get_logs_for_date
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +34,26 @@ def _check(pct: float, lo: float, hi: float) -> str:
     return "✅" if lo <= pct <= hi else "❌"
 
 
-def build_daily_report(user_id: int, tz: str = "Europe/Moscow") -> str | None:
-    records = get_today_logs(user_id, tz=tz)
+def build_daily_report(
+    user_id: int,
+    tz: str = "Europe/Moscow",
+    target_date: date | None = None,
+) -> str | None:
+    """
+    Строит отчёт за указанную дату.
+    
+    Args:
+        user_id: Telegram user ID.
+        tz: Часовой пояс.
+        target_date: Дата для отчёта. По умолчанию — вчера (для ночного отчёта).
+    
+    Returns:
+        Текст отчёта или None, если записей нет.
+    """
+    if target_date is None:
+        target_date = datetime.now(timezone(tz)).date() - timedelta(days=1)
+
+    records = get_logs_for_date(user_id, target_date, tz=tz)
     if not records:
         return None
 
@@ -46,9 +64,10 @@ def build_daily_report(user_id: int, tz: str = "Europe/Moscow") -> str | None:
 
     total_burned = 0.0
     burned_note = ""
+    fit_data_time = ""
     try:
-        now = datetime.now(timezone(tz))
-        total_burned = fetch_daily_calories_for_date(now.date(), tz)
+        total_burned = fetch_daily_calories_for_date(target_date, tz)
+        fit_data_time = datetime.now(timezone(tz)).strftime("%H:%M")
     except Exception as e:
         burned_note = f" (не удалось получить из Google Fit: {e})"
 
@@ -59,8 +78,8 @@ def build_daily_report(user_id: int, tz: str = "Europe/Moscow") -> str | None:
     else:
         pct_protein = pct_fat = pct_carbs = 0.0
 
-    now = datetime.now(timezone(tz))
-    date_str = f"{now.day} {MONTHS_RU[now.month]}"
+    date_str = f"{target_date.day} {MONTHS_RU[target_date.month]}"
+    fit_note = f" (Google Fit данные на {fit_data_time})" if fit_data_time else ""
 
     lines = [
         f"📊 <b>Итог дня — {date_str}</b>",
@@ -75,7 +94,7 @@ def build_daily_report(user_id: int, tz: str = "Europe/Moscow") -> str | None:
     lines += [
         "",
         f"🔥 <b>Итого съедено: {int(total_kcal)} ккал</b>",
-        f"🔥 <b>Сожжено: {int(total_burned)} ккал</b>{burned_note}",
+        f"🔥 <b>Сожжено: {int(total_burned)} ккал</b>{fit_note}{burned_note}",
         f"⚖️ Разница: {int(total_kcal - total_burned)} ккал",
         f"  🥩 {int(total_protein)}г  🧈 {int(total_fat)}г  🍞 {int(total_carbs)}г",
         "",
