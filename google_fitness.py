@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
 import requests
+from requests.exceptions import HTTPError
 from pytz import timezone
 
 from config import load_config
@@ -138,14 +139,14 @@ def get_access_token() -> str:
     return tokens["access_token"]
 
 
-def _aggregate_calories(start_ms: int, end_ms: int) -> dict[str, Any]:
+def _aggregate_calories(start_ms: int, end_ms: int, data_type_name: str = "com.google.calories.expended") -> dict[str, Any]:
     access_token = get_access_token()
     headers = {
         "Authorization": f"Bearer {access_token}",
         "Content-Type": "application/json",
     }
     body = {
-        "aggregateBy": [{"dataTypeName": "com.google.calories.expended"}],
+        "aggregateBy": [{"dataTypeName": data_type_name}],
         "bucketByTime": {"durationMillis": end_ms - start_ms},
         "startTimeMillis": start_ms,
         "endTimeMillis": end_ms,
@@ -153,6 +154,29 @@ def _aggregate_calories(start_ms: int, end_ms: int) -> dict[str, Any]:
     resp = requests.post(FITNESS_AGGREGATE_URL, headers=headers, json=body, timeout=20)
     resp.raise_for_status()
     return resp.json()
+
+
+def _sum_calories_for_types(start_ms: int, end_ms: int, data_types: list[str]) -> float:
+    total = 0.0
+    for data_type in data_types:
+        try:
+            response = _aggregate_calories(start_ms, end_ms, data_type)
+        except HTTPError as exc:
+            if exc.response is not None:
+                try:
+                    error_json = exc.response.json()
+                except Exception:
+                    error_json = {}
+                message = error_json.get("error", {}).get("message", "")
+                if "no default datasource found for" in message:
+                    logger.warning(
+                        "Нет стандартного источника данных для %s, используем доступные калории expended.",
+                        data_type,
+                    )
+                    continue
+            raise
+        total += _parse_calories(response)
+    return total
 
 
 def _parse_calories(response: dict[str, Any]) -> float:
@@ -172,8 +196,11 @@ def fetch_daily_calories_for_date(date_value: datetime.date, tz_name: str = "Eur
         tz = timezone("UTC")
     start = tz.localize(datetime(date_value.year, date_value.month, date_value.day, 0, 0, 0))
     end = start + timedelta(days=1)
-    response = _aggregate_calories(int(start.timestamp() * 1000), int(end.timestamp() * 1000))
-    return _parse_calories(response)
+    return _sum_calories_for_types(
+        int(start.timestamp() * 1000),
+        int(end.timestamp() * 1000),
+        ["com.google.calories.expended", "com.google.calories.bmr"],
+    )
 
 
 def fetch_calories_since_midnight(tz_name: str = "Europe/Moscow") -> float:
@@ -183,8 +210,11 @@ def fetch_calories_since_midnight(tz_name: str = "Europe/Moscow") -> float:
         tz = timezone("UTC")
     now = datetime.now(tz)
     start = tz.localize(datetime(now.year, now.month, now.day, 0, 0, 0))
-    response = _aggregate_calories(int(start.timestamp() * 1000), int(now.timestamp() * 1000))
-    return _parse_calories(response)
+    return _sum_calories_for_types(
+        int(start.timestamp() * 1000),
+        int(now.timestamp() * 1000),
+        ["com.google.calories.expended", "com.google.calories.bmr"],
+    )
 
 
 def fetch_calories_range(start_date: datetime.date, end_date: datetime.date, tz_name: str = "Europe/Moscow") -> dict[str, float]:
@@ -205,7 +235,7 @@ def sync_fitness_rows(start_date: datetime.date, end_date: datetime.date, tz_nam
     for date_str, kcal in results.items():
         start_day = datetime.fromisoformat(date_str)
         description = (
-            f"Calories expended from {date_str} to {(start_day + timedelta(days=1)).strftime('%Y-%m-%d')}"
+            f"Calories expended (+BMR if available) from {date_str} to {(start_day + timedelta(days=1)).strftime('%Y-%m-%d')}"
         )
         upsert_fitness_data({
             "description": description,
@@ -227,9 +257,12 @@ def fetch_daily_calories(tz_name: str = "Europe/Moscow") -> float | None:
     start_ms = int(yesterday_start.timestamp() * 1000)
     end_ms = int(today_start.timestamp() * 1000)
 
-    response = _aggregate_calories(start_ms, end_ms)
-    total_kcal = _parse_calories(response)
-    description = f"Calories expended from {yesterday_start.strftime('%Y-%m-%d')} to {today_start.strftime('%Y-%m-%d')}"
+    total_kcal = _sum_calories_for_types(
+        start_ms,
+        end_ms,
+        ["com.google.calories.expended", "com.google.calories.bmr"],
+    )
+    description = f"Calories expended (+BMR if available) from {yesterday_start.strftime('%Y-%m-%d')} to {today_start.strftime('%Y-%m-%d')}"
     log_fitness_data({
         "timestamp": today_start.strftime("%Y-%m-%d %H:%M"),
         "description": description,

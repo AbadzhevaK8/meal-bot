@@ -19,7 +19,7 @@ results = fetch_calories_range(start_date, end_date, config.TIMEZONE)
 
 for day, kcal in results.items():
     day_date = datetime.fromisoformat(day).date()
-    description = f"Calories expended from {day} to {(day_date + timedelta(days=1)).strftime('%Y-%m-%d')}"
+    description = f"Calories expended (+BMR if available) from {day} to {(day_date + timedelta(days=1)).strftime('%Y-%m-%d')}"
     ws.append_row([
         datetime.now(timezone(config.TIMEZONE)).strftime('%Y-%m-%d %H:%M'),
         description,

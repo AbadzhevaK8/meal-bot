@@ -40,6 +40,10 @@ docker compose up -d --build
 `https://medina.garum.tech/oauth2callback` должен быть проксирован на
 `http://localhost:8080/oauth2callback` или проброшен через Docker.
 
+Если на том же хосте будет работать `period_bot`, оставьте `meal_bot` на
+`/` и `8080`, а `period_bot` проксируйте по другому пути, например
+`/period/` на `http://127.0.0.1:8081/`.
+
 ### 4. Или локально
 
 ```bash
