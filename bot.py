@@ -29,8 +29,16 @@ from google_fitness import (
     sync_fitness_rows,
 )
 from groq_vision import analyze_food as analyze_image_food
+from health_connect import fetch_health_connect_calories_for_date, ingest_health_connect_calories
 from report import build_daily_report
-from sheets import delete_last_meal, get_logs_for_date, get_today_logs, log_daily_calories, log_meal
+from sheets import (
+    delete_last_meal,
+    get_logs_for_date,
+    get_saved_fitness_calories_for_date,
+    get_today_logs,
+    log_daily_calories,
+    log_meal,
+)
 
 log_file = Path(__file__).parent / "bot.log"
 logging.basicConfig(
@@ -105,10 +113,45 @@ async def health(request: web.Request) -> web.Response:
     return web.Response(text="ok")
 
 
+async def healthconnect_calories(request: web.Request) -> web.Response:
+    expected_token = config.HEALTHCONNECT_INGEST_TOKEN
+    if not expected_token:
+        return web.json_response({"error": "Health Connect ingest is not configured"}, status=503)
+
+    auth_header = request.headers.get("Authorization", "")
+    provided_token = ""
+    if auth_header.startswith("Bearer "):
+        provided_token = auth_header.removeprefix("Bearer ").strip()
+    if not provided_token:
+        provided_token = request.query.get("token", "")
+    if provided_token != expected_token:
+        return web.json_response({"error": "Unauthorized"}, status=401)
+
+    try:
+        payload = await request.json()
+        parsed = await asyncio.to_thread(ingest_health_connect_calories, payload, config.TIMEZONE)
+    except Exception as e:
+        logger.exception("Health Connect ingest failed: %s", e)
+        return web.json_response({"error": str(e)}, status=400)
+
+    logger.info(
+        "Health Connect calories ingested: date=%s total=%s",
+        parsed["date"],
+        parsed["total_kcal"],
+    )
+    return web.json_response({
+        "ok": True,
+        "date": parsed["date"].isoformat(),
+        "total_kcal": round(parsed["total_kcal"], 1),
+        "note": parsed["note"],
+    })
+
+
 async def start_web_server() -> None:
     app = web.Application()
     app.add_routes([
         web.get("/oauth2callback", oauth2_callback),
+        web.post("/healthconnect/calories", healthconnect_calories),
         web.get("/health", health),
     ])
     runner = web.AppRunner(app)
@@ -259,10 +302,21 @@ async def cmd_today(message: Message) -> None:
     today = datetime.now(timezone(config.TIMEZONE)).date()
     burned = 0.0
     burned_note = ""
-    try:
-        burned = fetch_calories_since_midnight(config.TIMEZONE)
-    except Exception as e:
-        burned_note = f" (не удалось получить текущие данные из Google Fit: {e})"
+    health_connect_calories = fetch_health_connect_calories_for_date(today)
+    if health_connect_calories:
+        burned, health_connect_note = health_connect_calories
+        burned_note = f" ({health_connect_note})"
+    else:
+        try:
+            burned = fetch_calories_since_midnight(config.TIMEZONE)
+            burned_note = " (Google Fit API)"
+        except Exception as e:
+            saved_fitness_calories = get_saved_fitness_calories_for_date(today)
+            if saved_fitness_calories:
+                burned, saved_fitness_note = saved_fitness_calories
+                burned_note = f" ({saved_fitness_note}; Google Fit временно недоступен: {e})"
+            else:
+                burned_note = f" (не удалось получить текущие данные из Google Fit: {e})"
 
     total_kcal = sum(float(r.get("kcal", 0) or 0) for r in records)
     total_protein = sum(float(r.get("protein_g", 0) or 0) for r in records)

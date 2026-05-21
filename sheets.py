@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 from datetime import date, datetime
 from pathlib import Path
 
@@ -15,6 +16,8 @@ HEADERS = [
     "kcal", "protein_g", "fat_g", "carbs_g",
     "confidence", "note",
 ]
+
+FITNESS_DATE_PATTERN = re.compile(r"from (\d{4}-\d{2}-\d{2}) to \d{4}-\d{2}-\d{2}")
 
 
 def _is_sheets_configured() -> bool:
@@ -83,6 +86,130 @@ def _find_fitness_row_index(worksheet, description_value: str) -> int | None:
         if len(row) > desc_idx and row[desc_idx] == description_value:
             return idx
     return None
+
+
+def _parse_fitness_date_from_description(description: str) -> str | None:
+    match = FITNESS_DATE_PATTERN.search(description or "")
+    if match:
+        return match.group(1)
+    return None
+
+
+def _parse_date_from_timestamp(timestamp: str) -> str | None:
+    try:
+        return datetime.fromisoformat(timestamp).date().isoformat()
+    except ValueError:
+        try:
+            return datetime.strptime(timestamp, "%Y-%m-%d %H:%M").date().isoformat()
+        except ValueError:
+            return None
+
+
+def _parse_kcal(value: str | float | int | None) -> float | None:
+    try:
+        return float(str(value or 0).replace(",", "."))
+    except ValueError:
+        return None
+
+
+def get_health_connect_calories_for_date(date_value: date) -> tuple[float, str] | None:
+    """Returns the latest Health Connect total calories row for a date, if present."""
+    if not _is_sheets_configured():
+        return None
+
+    from config import load_config
+
+    config = load_config()
+    worksheet = _get_fitness_sheet(config.GOOGLE_CREDENTIALS_JSON, config.GOOGLE_SHEETS_ID)
+    values = worksheet.get_all_values()
+    if len(values) < 2:
+        return None
+
+    header = values[0]
+    required = {"timestamp", "description", "kcal", "note"}
+    if not required.issubset(set(header)):
+        return None
+
+    timestamp_idx = header.index("timestamp")
+    description_idx = header.index("description")
+    kcal_idx = header.index("kcal")
+    note_idx = header.index("note")
+    description = f"Health Connect total calories for {date_value.isoformat()}"
+
+    latest: tuple[str, float, str] | None = None
+    for row in values[1:]:
+        if len(row) <= max(timestamp_idx, description_idx, kcal_idx, note_idx):
+            continue
+        if row[description_idx] != description:
+            continue
+        try:
+            kcal = float(str(row[kcal_idx]).replace(",", ".") or 0)
+        except ValueError:
+            continue
+        latest = (row[timestamp_idx], kcal, row[note_idx])
+
+    if latest is None:
+        return None
+    timestamp, kcal, note = latest
+    source_note = note or f"Health Connect данные на {timestamp}"
+    return kcal, source_note
+
+
+def get_saved_fitness_calories_for_date(date_value: date) -> tuple[float, str] | None:
+    """Returns the latest saved Google Fit calories row for a date, if present."""
+    if not _is_sheets_configured():
+        return None
+
+    from config import load_config
+
+    config = load_config()
+    worksheet = _get_fitness_sheet(config.GOOGLE_CREDENTIALS_JSON, config.GOOGLE_SHEETS_ID)
+    values = worksheet.get_all_values()
+    if len(values) < 2:
+        return None
+
+    header = values[0]
+    required = {"timestamp", "description", "kcal"}
+    if not required.issubset(set(header)):
+        return None
+
+    timestamp_idx = header.index("timestamp")
+    description_idx = header.index("description")
+    kcal_idx = header.index("kcal")
+    note_idx = header.index("note") if "note" in header else None
+    target = date_value.isoformat()
+    by_description: dict[str, tuple[str, float, str]] = {}
+    by_timestamp: dict[str, tuple[str, float, str]] = {}
+
+    for row in values[1:]:
+        if len(row) <= max(timestamp_idx, description_idx, kcal_idx):
+            continue
+        timestamp = row[timestamp_idx]
+        description = row[description_idx]
+        if description.startswith("Health Connect total calories"):
+            continue
+        kcal = _parse_kcal(row[kcal_idx])
+        if kcal is None:
+            continue
+        note = row[note_idx] if note_idx is not None and len(row) > note_idx else ""
+
+        description_date = _parse_fitness_date_from_description(description)
+        if description_date == target:
+            by_description[description or timestamp] = (timestamp, kcal, note)
+            continue
+
+        timestamp_date = _parse_date_from_timestamp(timestamp)
+        if timestamp_date == target:
+            by_timestamp[description or timestamp] = (timestamp, kcal, note)
+
+    candidates = by_description or by_timestamp
+    if not candidates:
+        return None
+
+    total = sum(kcal for _, kcal, _ in candidates.values())
+    latest_timestamp = max((timestamp for timestamp, _, _ in candidates.values()), default="")
+    note = f"сохранённые данные fitness на {latest_timestamp}" if latest_timestamp else "сохранённые данные fitness"
+    return total, note
 
 
 def upsert_fitness_data(data: dict, tz: str = "Europe/Moscow") -> None:

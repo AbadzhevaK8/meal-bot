@@ -39,6 +39,37 @@ class FitnessTokens:
     token_type: str | None = None
 
 
+class GoogleFitnessAuthError(RuntimeError):
+    """Raised when Google OAuth credentials need user action."""
+
+
+def _raise_for_token_error(resp: requests.Response) -> None:
+    try:
+        payload = resp.json()
+    except ValueError:
+        payload = {}
+
+    error = payload.get("error") or f"HTTP {resp.status_code}"
+    description = payload.get("error_description") or payload.get("error") or resp.text[:200]
+    if error == "invalid_grant":
+        raise GoogleFitnessAuthError(
+            "токен Google Fitness истёк или был отозван. Выполните /fitness_auth заново."
+        )
+    if error == "invalid_client":
+        raise GoogleFitnessAuthError(
+            "Google OAuth client_id/client_secret не приняты. Проверьте GOOGLE_OAUTH_CLIENT_ID "
+            "и GOOGLE_OAUTH_CLIENT_SECRET."
+        )
+    raise GoogleFitnessAuthError(f"ошибка Google OAuth: {error}: {description}")
+
+
+def _post_token_request(data: dict[str, Any]) -> dict[str, Any]:
+    resp = requests.post(TOKEN_URL, data=data, timeout=15)
+    if not resp.ok:
+        _raise_for_token_error(resp)
+    return resp.json()
+
+
 def _load_tokens() -> dict[str, Any] | None:
     if not TOKEN_FILE.exists():
         return None
@@ -98,9 +129,7 @@ def exchange_code_for_tokens(code: str) -> dict[str, Any]:
         "redirect_uri": config.GOOGLE_REDIRECT_URI,
         "grant_type": "authorization_code",
     }
-    resp = requests.post(TOKEN_URL, data=data, timeout=15)
-    resp.raise_for_status()
-    tokens = resp.json()
+    tokens = _post_token_request(data)
     if "refresh_token" not in tokens:
         raise ValueError("Google OAuth did not return a refresh_token. Authorize again.")
     _save_tokens(tokens)
@@ -119,9 +148,7 @@ def refresh_access_token() -> dict[str, Any]:
         "refresh_token": tokens["refresh_token"],
         "grant_type": "refresh_token",
     }
-    resp = requests.post(TOKEN_URL, data=data, timeout=15)
-    resp.raise_for_status()
-    new_tokens = resp.json()
+    new_tokens = _post_token_request(data)
     if "refresh_token" not in new_tokens:
         new_tokens["refresh_token"] = tokens["refresh_token"]
     _save_tokens(new_tokens)
@@ -151,9 +178,28 @@ def _aggregate_calories(start_ms: int, end_ms: int, data_type_name: str = "com.g
         "startTimeMillis": start_ms,
         "endTimeMillis": end_ms,
     }
-    resp = requests.post(FITNESS_AGGREGATE_URL, headers=headers, json=body, timeout=20)
-    resp.raise_for_status()
-    return resp.json()
+    retry_statuses = {429, 500, 502, 503, 504}
+    last_response: requests.Response | None = None
+    for attempt in range(3):
+        resp = requests.post(FITNESS_AGGREGATE_URL, headers=headers, json=body, timeout=20)
+        last_response = resp
+        if resp.ok or resp.status_code not in retry_statuses:
+            resp.raise_for_status()
+            return resp.json()
+
+        delay = 2 ** attempt
+        logger.warning(
+            "Google Fitness aggregate failed with HTTP %s for %s; retrying in %ss (%s/3)",
+            resp.status_code,
+            data_type_name,
+            delay,
+            attempt + 1,
+        )
+        time.sleep(delay)
+
+    assert last_response is not None
+    last_response.raise_for_status()
+    return last_response.json()
 
 
 def _sum_calories_for_types(start_ms: int, end_ms: int, data_types: list[str]) -> float:
@@ -280,5 +326,11 @@ def get_tokens_status() -> str:
     expires_at = tokens.get("expires_at")
     if not expires_at:
         return "Токен настроен, но информация о сроке действия отсутствует."
+    if time.time() >= int(expires_at) - 60:
+        try:
+            tokens = refresh_access_token()
+            expires_at = tokens.get("expires_at")
+        except GoogleFitnessAuthError as e:
+            return f"Авторизация требует обновления: {e}"
     expires = datetime.fromtimestamp(int(expires_at), dt_timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     return f"Авторизация настроена. access_token истекает: {expires}."

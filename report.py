@@ -2,9 +2,10 @@ import logging
 from datetime import date, datetime, timedelta
 
 from google_fitness import fetch_daily_calories_for_date
+from health_connect import fetch_health_connect_calories_for_date
 from pytz import timezone
 
-from sheets import get_logs_for_date
+from sheets import get_logs_for_date, get_saved_fitness_calories_for_date
 
 logger = logging.getLogger(__name__)
 
@@ -65,11 +66,21 @@ def build_daily_report(
     total_burned = 0.0
     burned_note = ""
     fit_data_time = ""
-    try:
-        total_burned = fetch_daily_calories_for_date(target_date, tz)
-        fit_data_time = datetime.now(timezone(tz)).strftime("%H:%M")
-    except Exception as e:
-        burned_note = f" (не удалось получить из Google Fit: {e})"
+    health_connect_calories = fetch_health_connect_calories_for_date(target_date)
+    if health_connect_calories:
+        total_burned, burned_note_text = health_connect_calories
+        burned_note = f" ({burned_note_text})"
+    else:
+        try:
+            total_burned = fetch_daily_calories_for_date(target_date, tz)
+            fit_data_time = datetime.now(timezone(tz)).strftime("%H:%M")
+        except Exception as e:
+            saved_fitness_calories = get_saved_fitness_calories_for_date(target_date)
+            if saved_fitness_calories:
+                total_burned, saved_fitness_note = saved_fitness_calories
+                burned_note = f" ({saved_fitness_note}; Google Fit временно недоступен: {e})"
+            else:
+                burned_note = f" (не удалось получить из Google Fit: {e})"
 
     if total_kcal > 0:
         pct_protein = (total_protein * PROTEIN_KCAL / total_kcal) * 100

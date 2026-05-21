@@ -19,6 +19,7 @@ class Config:
     GOOGLE_OAUTH_CLIENT_ID: str | None = None
     GOOGLE_OAUTH_CLIENT_SECRET: str | None = None
     GOOGLE_REDIRECT_URI: str | None = None
+    HEALTHCONNECT_INGEST_TOKEN: str | None = None
     WEB_PORT: int = 8080
 
 
@@ -43,5 +44,6 @@ def load_config() -> Config:
         GOOGLE_OAUTH_CLIENT_ID=os.getenv("GOOGLE_OAUTH_CLIENT_ID"),
         GOOGLE_OAUTH_CLIENT_SECRET=os.getenv("GOOGLE_OAUTH_CLIENT_SECRET"),
         GOOGLE_REDIRECT_URI=os.getenv("GOOGLE_REDIRECT_URI"),
+        HEALTHCONNECT_INGEST_TOKEN=os.getenv("HEALTHCONNECT_INGEST_TOKEN"),
         WEB_PORT=int(os.getenv("WEB_PORT", "8080")),
     )

@@ -64,6 +64,29 @@ python bot.py
 | `/fitness_status` | Проверить статус Google Fitness авторизации |
 | `/help` | Справка по командам |
 
+## Health Connect ingest
+
+Health Connect runs on Android devices, so the server cannot read it directly.
+Use a small Android bridge to read `TotalCaloriesBurnedRecord` locally and send
+daily totals to:
+
+```http
+POST https://medina.garum.tech/healthconnect/calories
+Authorization: Bearer <HEALTHCONNECT_INGEST_TOKEN>
+Content-Type: application/json
+
+{
+  "date": "2026-05-14",
+  "total_kcal": 1829,
+  "active_kcal": 500,
+  "basal_kcal": 1329,
+  "source": "Health Connect"
+}
+```
+
+When a Health Connect row exists for a date, `/today` and `/report` prefer it
+over Google Fit REST API data.
+
 ## Структура таблицы
 
 | timestamp | user_id | name | weight_g | kcal | protein_g | fat_g | carbs_g | confidence | note |
@@ -100,6 +123,7 @@ GOOGLE_CREDENTIALS_JSON=путь_к_json_ключу
 GOOGLE_OAUTH_CLIENT_ID=client_id_from_google
 GOOGLE_OAUTH_CLIENT_SECRET=client_secret_from_google
 GOOGLE_REDIRECT_URI=https://medina.garum.tech/oauth2callback
+HEALTHCONNECT_INGEST_TOKEN=секрет_для_android_bridge
 WEB_PORT=8080
 TIMEZONE=Europe/Moscow
 ACCESS_PASSWORD=пароль_доступа
