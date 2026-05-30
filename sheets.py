@@ -194,8 +194,9 @@ def get_saved_fitness_calories_for_date(date_value: date) -> tuple[float, str] |
         note = row[note_idx] if note_idx is not None and len(row) > note_idx else ""
 
         description_date = _parse_fitness_date_from_description(description)
-        if description_date == target:
-            by_description[description or timestamp] = (timestamp, kcal, note)
+        if description_date:
+            if description_date == target:
+                by_description[description or timestamp] = (timestamp, kcal, note)
             continue
 
         timestamp_date = _parse_date_from_timestamp(timestamp)
