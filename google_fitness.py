@@ -235,13 +235,22 @@ def _parse_calories(response: dict[str, Any]) -> float:
     return total
 
 
-def fetch_daily_calories_for_date(date_value: datetime.date, tz_name: str = "Europe/Moscow") -> float:
+def _day_bounds(date_value: datetime.date, tz_name: str, day_start_hour: int) -> tuple[datetime, datetime]:
     try:
         tz = timezone(tz_name)
     except Exception:
         tz = timezone("UTC")
-    start = tz.localize(datetime(date_value.year, date_value.month, date_value.day, 0, 0, 0))
+    start = tz.localize(datetime(date_value.year, date_value.month, date_value.day, day_start_hour, 0, 0))
     end = start + timedelta(days=1)
+    return start, end
+
+
+def fetch_daily_calories_for_date(
+    date_value: datetime.date,
+    tz_name: str = "Europe/Moscow",
+    day_start_hour: int = 0,
+) -> float:
+    start, end = _day_bounds(date_value, tz_name, day_start_hour)
     return _sum_calories_for_types(
         int(start.timestamp() * 1000),
         int(end.timestamp() * 1000),
@@ -249,13 +258,15 @@ def fetch_daily_calories_for_date(date_value: datetime.date, tz_name: str = "Eur
     )
 
 
-def fetch_calories_since_midnight(tz_name: str = "Europe/Moscow") -> float:
+def fetch_calories_since_day_start(tz_name: str = "Europe/Moscow", day_start_hour: int = 3) -> float:
     try:
         tz = timezone(tz_name)
     except Exception:
         tz = timezone("UTC")
     now = datetime.now(tz)
-    start = tz.localize(datetime(now.year, now.month, now.day, 0, 0, 0))
+    start = tz.localize(datetime(now.year, now.month, now.day, day_start_hour, 0, 0))
+    if now < start:
+        start -= timedelta(days=1)
     return _sum_calories_for_types(
         int(start.timestamp() * 1000),
         int(now.timestamp() * 1000),
@@ -263,12 +274,21 @@ def fetch_calories_since_midnight(tz_name: str = "Europe/Moscow") -> float:
     )
 
 
-def fetch_calories_range(start_date: datetime.date, end_date: datetime.date, tz_name: str = "Europe/Moscow") -> dict[str, float]:
+def fetch_calories_since_midnight(tz_name: str = "Europe/Moscow") -> float:
+    return fetch_calories_since_day_start(tz_name, day_start_hour=0)
+
+
+def fetch_calories_range(
+    start_date: datetime.date,
+    end_date: datetime.date,
+    tz_name: str = "Europe/Moscow",
+    day_start_hour: int = 0,
+) -> dict[str, float]:
     """Fetch per-day calories between start_date and end_date inclusive."""
     results: dict[str, float] = {}
     current = start_date
     while current <= end_date:
-        results[current.isoformat()] = fetch_daily_calories_for_date(current, tz_name)
+        results[current.isoformat()] = fetch_daily_calories_for_date(current, tz_name, day_start_hour)
         current += timedelta(days=1)
     return results
 

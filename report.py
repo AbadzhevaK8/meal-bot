@@ -39,6 +39,7 @@ def build_daily_report(
     user_id: int,
     tz: str = "Europe/Moscow",
     target_date: date | None = None,
+    day_start_hour: int = 3,
 ) -> str | None:
     """
     Строит отчёт за указанную дату.
@@ -46,7 +47,7 @@ def build_daily_report(
     Args:
         user_id: Telegram user ID.
         tz: Часовой пояс.
-        target_date: Дата для отчёта. По умолчанию — вчера (для ночного отчёта).
+        target_date: Дата начала пищевых суток. По умолчанию — вчера (для ночного отчёта).
     
     Returns:
         Текст отчёта или None, если записей нет.
@@ -66,16 +67,20 @@ def build_daily_report(
     total_burned = 0.0
     burned_note = ""
     fit_data_time = ""
-    health_connect_calories = fetch_health_connect_calories_for_date(target_date)
+    health_connect_calories = None
+    if day_start_hour == 0:
+        health_connect_calories = fetch_health_connect_calories_for_date(target_date)
     if health_connect_calories:
         total_burned, burned_note_text = health_connect_calories
         burned_note = f" ({burned_note_text})"
     else:
         try:
-            total_burned = fetch_daily_calories_for_date(target_date, tz)
+            total_burned = fetch_daily_calories_for_date(target_date, tz, day_start_hour)
             fit_data_time = datetime.now(timezone(tz)).strftime("%H:%M")
         except Exception as e:
-            saved_fitness_calories = get_saved_fitness_calories_for_date(target_date)
+            saved_fitness_calories = None
+            if day_start_hour == 0:
+                saved_fitness_calories = get_saved_fitness_calories_for_date(target_date)
             if saved_fitness_calories:
                 total_burned, saved_fitness_note = saved_fitness_calories
                 burned_note = f" ({saved_fitness_note}; Google Fit временно недоступен: {e})"

@@ -21,22 +21,16 @@ from deepseek import analyze_text_food
 from google_fitness import (
     build_authorization_url,
     exchange_code_for_tokens,
-    fetch_calories_since_midnight,
-    fetch_daily_calories,
-    fetch_daily_calories_for_date,
+    fetch_calories_since_day_start,
     get_tokens_status,
-    has_saved_tokens,
     sync_fitness_rows,
 )
 from groq_vision import analyze_food as analyze_image_food
-from health_connect import fetch_health_connect_calories_for_date, ingest_health_connect_calories
+from health_connect import ingest_health_connect_calories
 from report import build_daily_report
 from sheets import (
     delete_last_meal,
-    get_logs_for_date,
-    get_saved_fitness_calories_for_date,
     get_today_logs,
-    log_daily_calories,
     log_meal,
 )
 
@@ -54,6 +48,7 @@ logger = logging.getLogger(__name__)
 config = load_config()
 bot = Bot(token=config.BOT_TOKEN)
 dp = Dispatcher()
+DAY_START_HOUR = 3
 
 AUTH_FILE = Path(__file__).parent / "auth_users.json"
 authenticated_users: set[int] = set()
@@ -299,24 +294,13 @@ async def cmd_today(message: Message) -> None:
     user_id = message.from_user.id
     records = get_today_logs(user_id, tz=config.TIMEZONE)
 
-    today = datetime.now(timezone(config.TIMEZONE)).date()
     burned = 0.0
     burned_note = ""
-    health_connect_calories = fetch_health_connect_calories_for_date(today)
-    if health_connect_calories:
-        burned, health_connect_note = health_connect_calories
-        burned_note = f" ({health_connect_note})"
-    else:
-        try:
-            burned = fetch_calories_since_midnight(config.TIMEZONE)
-            burned_note = " (Google Fit API)"
-        except Exception as e:
-            saved_fitness_calories = get_saved_fitness_calories_for_date(today)
-            if saved_fitness_calories:
-                burned, saved_fitness_note = saved_fitness_calories
-                burned_note = f" ({saved_fitness_note}; Google Fit временно недоступен: {e})"
-            else:
-                burned_note = f" (не удалось получить текущие данные из Google Fit: {e})"
+    try:
+        burned = fetch_calories_since_day_start(config.TIMEZONE, DAY_START_HOUR)
+        burned_note = " (Google Fit API)"
+    except Exception as e:
+        burned_note = f" (не удалось получить текущие данные из Google Fit: {e})"
 
     total_kcal = sum(float(r.get("kcal", 0) or 0) for r in records)
     total_protein = sum(float(r.get("protein_g", 0) or 0) for r in records)
@@ -324,7 +308,7 @@ async def cmd_today(message: Message) -> None:
     total_carbs = sum(float(r.get("carbs_g", 0) or 0) for r in records)
 
     lines = [
-        "📊 За сегодня:",
+        f"📊 За сегодня (с {DAY_START_HOUR:02d}:00):",
         f"🔥 Съедено: {int(total_kcal)} ккал",
         f"🔥 Сожжено на момент вызова: {int(burned)} ккал{burned_note}",
         f"⚖️ Разница: {int(total_kcal - burned)} ккал",
@@ -595,11 +579,16 @@ async def process_meal_image(
 
 
 async def send_daily_reports() -> None:
-    """Отправляет суточный отчёт за вчерашний день (запускается в 1:00 ночи)."""
+    """Отправляет суточный отчёт за завершившиеся пищевые сутки (запускается в 3:00 ночи)."""
     yesterday = datetime.now(timezone(config.TIMEZONE)).date() - timedelta(days=1)
     for user_id in config.REPORT_USER_IDS:
         try:
-            text = build_daily_report(user_id, tz=config.TIMEZONE, target_date=yesterday)
+            text = build_daily_report(
+                user_id,
+                tz=config.TIMEZONE,
+                target_date=yesterday,
+                day_start_hour=DAY_START_HOUR,
+            )
             if text:
                 await bot.send_message(user_id, text, parse_mode="HTML")
             else:
@@ -649,7 +638,7 @@ async def main() -> None:
     await start_web_server()
 
     scheduler = AsyncIOScheduler(timezone=config.TIMEZONE)
-    scheduler.add_job(send_daily_reports, "cron", hour=1, minute=0)
+    scheduler.add_job(send_daily_reports, "cron", hour=DAY_START_HOUR, minute=0)
     scheduler.add_job(send_daily_fitness_ingestion, "cron", hour="0,6,12,18", minute=0)
     scheduler.start()
 

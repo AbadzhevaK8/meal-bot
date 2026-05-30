@@ -1,7 +1,7 @@
 import logging
 import os
 import re
-from datetime import date, datetime
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
 
 import gspread
@@ -18,6 +18,7 @@ HEADERS = [
 ]
 
 FITNESS_DATE_PATTERN = re.compile(r"from (\d{4}-\d{2}-\d{2}) to \d{4}-\d{2}-\d{2}")
+DAY_START_HOUR = 3
 
 
 def _is_sheets_configured() -> bool:
@@ -110,6 +111,48 @@ def _parse_kcal(value: str | float | int | None) -> float | None:
         return float(str(value or 0).replace(",", "."))
     except ValueError:
         return None
+
+
+def get_day_bounds(
+    target_date: date,
+    tz: str = "Europe/Moscow",
+    day_start_hour: int = DAY_START_HOUR,
+) -> tuple[datetime, datetime]:
+    tzinfo = timezone(tz)
+    start_naive = datetime.combine(target_date, time(hour=day_start_hour))
+    start = tzinfo.localize(start_naive)
+    return start, start + timedelta(days=1)
+
+
+def get_current_food_day(
+    tz: str = "Europe/Moscow",
+    day_start_hour: int = DAY_START_HOUR,
+) -> date:
+    now = datetime.now(timezone(tz))
+    if now.hour < day_start_hour:
+        return now.date() - timedelta(days=1)
+    return now.date()
+
+
+def _parse_meal_timestamp(timestamp: str, tz: str = "Europe/Moscow") -> datetime | None:
+    if not timestamp:
+        return None
+
+    for fmt in ("%Y-%m-%d %H:%M",):
+        try:
+            parsed = datetime.strptime(timestamp, fmt)
+            return timezone(tz).localize(parsed)
+        except ValueError:
+            pass
+
+    try:
+        parsed = datetime.fromisoformat(timestamp)
+    except ValueError:
+        return None
+
+    if parsed.tzinfo is None:
+        return timezone(tz).localize(parsed)
+    return parsed.astimezone(timezone(tz))
 
 
 def get_health_connect_calories_for_date(date_value: date) -> tuple[float, str] | None:
@@ -372,7 +415,7 @@ def log_meal(data: dict, user_id: int, tz: str = "Europe/Moscow") -> None:
 
 
 def get_logs_for_date(user_id: int, target_date: date, tz: str = "Europe/Moscow") -> list[dict]:
-    """Возвращает все записи пользователя за указанную дату."""
+    """Возвращает все записи пользователя за пищевые сутки 03:00-03:00."""
     if not _is_sheets_configured():
         return []
 
@@ -381,10 +424,9 @@ def get_logs_for_date(user_id: int, target_date: date, tz: str = "Europe/Moscow"
     config = load_config()
     worksheet = _get_sheet(config.GOOGLE_CREDENTIALS_JSON, config.GOOGLE_SHEETS_ID)
 
-    if isinstance(target_date, date):
-        date_prefix = target_date.strftime("%Y-%m-%d")
-    else:
-        date_prefix = str(target_date)
+    if not isinstance(target_date, date):
+        target_date = date.fromisoformat(str(target_date))
+    start, end = get_day_bounds(target_date, tz=tz)
 
     all_rows = worksheet.get_all_values()
     if not all_rows:
@@ -397,7 +439,12 @@ def get_logs_for_date(user_id: int, target_date: date, tz: str = "Europe/Moscow"
         if len(row) < len(header):
             continue
         record = dict(zip(header, row))
-        if record.get("user_id") == str(user_id) and record.get("timestamp", "").startswith(date_prefix):
+        timestamp = _parse_meal_timestamp(record.get("timestamp", ""), tz=tz)
+        if (
+            record.get("user_id") == str(user_id)
+            and timestamp is not None
+            and start <= timestamp < end
+        ):
             records.append(record)
 
     return records
@@ -405,7 +452,7 @@ def get_logs_for_date(user_id: int, target_date: date, tz: str = "Europe/Moscow"
 
 def get_today_logs(user_id: int, tz: str = "Europe/Moscow") -> list[dict]:
     """
-    Возвращает все записи пользователя за сегодня.
+    Возвращает все записи пользователя за текущие пищевые сутки.
 
     Args:
         user_id: Telegram user ID.
@@ -414,7 +461,7 @@ def get_today_logs(user_id: int, tz: str = "Europe/Moscow") -> list[dict]:
     Returns:
         Список словарей с данными записей.
     """
-    return get_logs_for_date(user_id, datetime.now(timezone(tz)).date(), tz=tz)
+    return get_logs_for_date(user_id, get_current_food_day(tz=tz), tz=tz)
 
 
 def delete_last_meal(user_id: int, tz: str = "Europe/Moscow") -> bool:
