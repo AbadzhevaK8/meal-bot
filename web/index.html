@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MealBot Mini App</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="/ui/assets/styles.css?v=20260618-bottom-icons" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">MealBot</p>
+          <h1>Дневник</h1>
+        </div>
+        <button class="icon-button refresh-button" id="refreshButton" type="button" aria-label="Обновить">
+          <svg class="refresh-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21 12a9 9 0 0 1-15.1 6.6" />
+            <path d="M3 12a9 9 0 0 1 15.1-6.6" />
+            <path d="M18 2v5h-5" />
+            <path d="M6 22v-5h5" />
+          </svg>
+        </button>
+      </header>
+
+      <section class="dev-auth" id="devAuth" hidden>
+        <input id="devUserId" inputmode="numeric" placeholder="Telegram user_id" />
+        <input id="devToken" type="password" placeholder="WEB_UI_TOKEN" />
+        <button id="saveDevAuth" type="button">OK</button>
+      </section>
+
+      <nav class="main-tabs" aria-label="Разделы дневника">
+        <button class="active" data-main-tab="today" type="button" aria-controls="todayTab" aria-selected="true" aria-label="Сегодня">
+          <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M8 2v4" />
+            <path d="M16 2v4" />
+            <path d="M3.5 9.5h17" />
+            <rect x="4" y="4" width="16" height="17" rx="2" />
+            <path d="M8 14h.01" />
+            <path d="M12 14h.01" />
+            <path d="M16 14h.01" />
+          </svg>
+          <span>Сегодня</span>
+        </button>
+        <button data-main-tab="week" type="button" aria-controls="weekTab" aria-selected="false" aria-label="Статистика">
+          <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 19V5" />
+            <path d="M4 19h16" />
+            <rect x="7" y="11" width="2.8" height="5" rx=".8" />
+            <rect x="11" y="7" width="2.8" height="9" rx=".8" />
+            <rect x="15" y="9" width="2.8" height="7" rx=".8" />
+          </svg>
+          <span>Статистика</span>
+        </button>
+        <button data-main-tab="settings" type="button" aria-controls="settingsTab" aria-selected="false" aria-label="Настройки">
+          <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
+            <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 0 1-4 0v-.09A1.7 1.7 0 0 0 9 19.35a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.65 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 0 1 0-4h.09A1.7 1.7 0 0 0 4.65 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.65a1.7 1.7 0 0 0 1.03-1.56V3a2 2 0 0 1 4 0v.09A1.7 1.7 0 0 0 15 4.65a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.35 9a1.7 1.7 0 0 0 1.56 1.03H21a2 2 0 0 1 0 4h-.09A1.7 1.7 0 0 0 19.4 15Z" />
+          </svg>
+          <span>Настройки</span>
+        </button>
+      </nav>
+
+      <div class="tab-page active" id="todayTab" data-tab-page="today">
+        <section class="stats-grid">
+          <article class="metric-card">
+            <span>Съедено</span>
+            <strong id="totalKcal">0</strong>
+            <small id="intakeCaption">ккал за день</small>
+          </article>
+          <article class="metric-card">
+            <span>Расход</span>
+            <strong id="totalProtein">0</strong>
+            <small id="expenseCaption">ккал</small>
+          </article>
+          <article class="metric-card">
+            <span>Баланс</span>
+            <strong id="totalFat">0</strong>
+            <small id="balanceCaption">дефицит / профицит</small>
+          </article>
+          <article class="metric-card">
+            <span>БЖУ</span>
+            <strong id="totalCarbs">0</strong>
+            <small id="macroCaption">б / ж / у, г</small>
+          </article>
+        </section>
+
+        <section class="panel nutrition-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Нормы дня</p>
+              <h2>Макронутриенты</h2>
+            </div>
+            <span class="badge" id="nutritionBasis">цели</span>
+          </div>
+          <div class="target-list" id="nutritionTargets"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">День</p>
+              <h2 id="selectedDayTitle">Сегодня</h2>
+            </div>
+            <div class="day-actions">
+              <button
+                class="expenditure-toggle"
+                id="expenditureButton"
+                type="button"
+              >Расход</button>
+              <button
+                class="cheat-toggle"
+                id="cheatdayToggle"
+                type="button"
+                aria-pressed="false"
+                onclick="window.mealbotToggleCheatday?.(event)"
+                ontouchend="window.mealbotToggleCheatday?.(event)"
+              >Читмил</button>
+              <span class="badge" id="dayCount">0 записей</span>
+            </div>
+          </div>
+          <div class="meal-list" id="mealList"></div>
+        </section>
+      </div>
+
+      <div class="tab-page" id="weekTab" data-tab-page="week" hidden>
+        <section class="panel calendar-panel">
+          <div class="panel-heading">
+            <button class="icon-button" id="prevMonth" type="button" aria-label="Предыдущий месяц">‹</button>
+            <h2 id="monthLabel">Месяц</h2>
+            <button class="icon-button" id="nextMonth" type="button" aria-label="Следующий месяц">›</button>
+          </div>
+          <div class="weekdays">
+            <span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span>
+          </div>
+          <div class="calendar" id="calendar"></div>
+        </section>
+
+        <section class="panel chart-panel">
+          <div class="panel-heading">
+            <h2>Динамика</h2>
+            <div class="segmented" role="tablist">
+              <button class="active" data-chart="kcal" type="button">Ккал</button>
+              <button data-chart="balance" type="button">Баланс</button>
+              <button data-chart="macros" type="button">БЖУ</button>
+            </div>
+          </div>
+          <canvas id="chartCanvas" height="220"></canvas>
+        </section>
+      </div>
+
+      <div class="tab-page" id="settingsTab" data-tab-page="settings" hidden>
+        <section class="panel settings-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Настройки</p>
+              <h2>Тема</h2>
+            </div>
+            <span class="badge" id="themeBadge">MealBot</span>
+          </div>
+          <div class="theme-list" aria-label="Выбор темы">
+            <button class="theme-option active" data-theme-option="mealbot" type="button">
+              <span>
+                <strong>MealBot</strong>
+                <small>яркая дневниковая</small>
+              </span>
+              <span class="theme-swatches" aria-hidden="true">
+                <i style="background:#a3e635"></i><i style="background:#89e5f0"></i><i style="background:#fef3c8"></i>
+              </span>
+            </button>
+            <button class="theme-option" data-theme-option="authkit" type="button">
+              <span>
+                <strong>AuthKit</strong>
+                <small>midnight blueprint</small>
+              </span>
+              <span class="theme-swatches" aria-hidden="true">
+                <i style="background:#05060f"></i><i style="background:#2f343e"></i><i style="background:#663af3"></i>
+              </span>
+            </button>
+            <button class="theme-option" data-theme-option="peak" type="button">
+              <span>
+                <strong>Peak</strong>
+                <small>gallery monochrome</small>
+              </span>
+              <span class="theme-swatches" aria-hidden="true">
+                <i style="background:#ffffff"></i><i style="background:#1a211e"></i><i style="background:#cc2e39"></i>
+              </span>
+            </button>
+            <button class="theme-option" data-theme-option="stripe" type="button">
+              <span>
+                <strong>Stripe</strong>
+                <small>violet horizon</small>
+              </span>
+              <span class="theme-swatches" aria-hidden="true">
+                <i style="background:#e5edf5"></i><i style="background:#533afd"></i><i style="background:#ff6118"></i>
+              </span>
+            </button>
+            <button class="theme-option" data-theme-option="seed" type="button">
+              <span>
+                <strong>Seed</strong>
+                <small>botanical parchment</small>
+              </span>
+              <span class="theme-swatches" aria-hidden="true">
+                <i style="background:#fcfcf7"></i><i style="background:#1c3a13"></i><i style="background:#d3fa99"></i>
+              </span>
+            </button>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <div class="loading-overlay" id="loadingOverlay" hidden>
+      <div class="loading-card" role="status" aria-live="polite">
+        <span class="loading-spinner" aria-hidden="true"></span>
+      </div>
+    </div>
+
+    <dialog id="editDialog">
+      <form method="dialog" class="edit-card" id="editForm">
+        <div class="panel-heading">
+          <h2>Запись</h2>
+          <button class="icon-button" value="cancel" type="submit" aria-label="Закрыть">×</button>
+        </div>
+        <input type="hidden" id="rowId" />
+        <label>Время<input id="timestamp" required placeholder="2026-05-30 12:30" /></label>
+        <label>Название<input id="name" required /></label>
+        <div class="form-grid">
+          <label>Вес, г<input id="weight" inputmode="decimal" /></label>
+          <label>Ккал<input id="kcal" inputmode="decimal" /></label>
+          <label>Белки<input id="protein" inputmode="decimal" /></label>
+          <label>Жиры<input id="fat" inputmode="decimal" /></label>
+          <label>Углеводы<input id="carbs" inputmode="decimal" /></label>
+          <label>Точность<input id="confidence" /></label>
+        </div>
+        <label>Заметка<textarea id="note" rows="3"></textarea></label>
+        <div class="dialog-actions">
+          <button class="secondary" id="deleteMeal" type="button">Удалить</button>
+          <button class="primary" value="default" type="submit">Сохранить</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="expenditureDialog">
+      <form method="dialog" class="edit-card" id="expenditureForm">
+        <div class="panel-heading">
+          <h2>Расход</h2>
+          <button class="icon-button" value="cancel" type="submit" aria-label="Закрыть">×</button>
+        </div>
+        <label>Ккал за день<input id="manualExpenditure" inputmode="decimal" required /></label>
+        <div class="dialog-actions">
+          <button class="secondary" value="cancel" type="submit">Отмена</button>
+          <button class="primary" value="default" type="submit">Сохранить</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div class="toast" id="toast" hidden></div>
+    <script src="/ui/assets/app.js?v=20260621-balance-chart"></script>
+  </body>
+</html>

@@ -1,10 +1,13 @@
 import asyncio
+import hashlib
+import hmac
 import json
 import logging
 import re
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
+from urllib.parse import urlencode
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
@@ -14,6 +17,7 @@ from aiogram import Bot, Dispatcher, F, types, exceptions
 from aiogram.filters import Command
 from aiogram.types import Message
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+import aggregate_daily_calories
 
 from config import load_config
 from pytz import timezone
@@ -25,14 +29,23 @@ from google_fitness import (
     get_tokens_status,
     sync_fitness_rows,
 )
+from garmin_connect import (
+    GarminConnectNotConfigured,
+    sync_garmin_cloud_calories_for_date,
+    sync_garmin_cloud_calories_range,
+)
 from groq_vision import analyze_food as analyze_image_food
-from health_connect import ingest_health_connect_calories
+from health_connect import GARMIN_SOURCE, fetch_health_connect_calories_for_date, ingest_health_connect_calories
 from report import build_daily_report
 from sheets import (
     delete_last_meal,
+    get_current_food_day,
     get_today_logs,
+    is_cheatmeal_day,
     log_meal,
+    set_cheatmeal_day,
 )
+from web_ui import setup_web_ui
 
 log_file = Path(__file__).parent / "bot.log"
 logging.basicConfig(
@@ -108,7 +121,7 @@ async def health(request: web.Request) -> web.Response:
     return web.Response(text="ok")
 
 
-async def healthconnect_calories(request: web.Request) -> web.Response:
+async def healthconnect_calories(request: web.Request, default_source: str = "Health Connect") -> web.Response:
     expected_token = config.HEALTHCONNECT_INGEST_TOKEN
     if not expected_token:
         return web.json_response({"error": "Health Connect ingest is not configured"}, status=503)
@@ -124,7 +137,12 @@ async def healthconnect_calories(request: web.Request) -> web.Response:
 
     try:
         payload = await request.json()
-        parsed = await asyncio.to_thread(ingest_health_connect_calories, payload, config.TIMEZONE)
+        parsed = await asyncio.to_thread(
+            ingest_health_connect_calories,
+            payload,
+            config.TIMEZONE,
+            default_source,
+        )
     except Exception as e:
         logger.exception("Health Connect ingest failed: %s", e)
         return web.json_response({"error": str(e)}, status=400)
@@ -142,11 +160,17 @@ async def healthconnect_calories(request: web.Request) -> web.Response:
     })
 
 
+async def garmin_calories(request: web.Request) -> web.Response:
+    return await healthconnect_calories(request, GARMIN_SOURCE)
+
+
 async def start_web_server() -> None:
     app = web.Application()
+    setup_web_ui(app, config)
     app.add_routes([
         web.get("/oauth2callback", oauth2_callback),
         web.post("/healthconnect/calories", healthconnect_calories),
+        web.post("/garmin/calories", garmin_calories),
         web.get("/health", health),
     ])
     runner = web.AppRunner(app)
@@ -161,12 +185,58 @@ def get_keyboard(is_auth: bool) -> types.ReplyKeyboardMarkup:
     if is_auth:
         keyboard = [
             [types.KeyboardButton(text="/today"), types.KeyboardButton(text="/report")],
+            [types.KeyboardButton(text="/app"), types.KeyboardButton(text="/cheatday")],
             [types.KeyboardButton(text="/delete")],
         ]
     else:
         keyboard = [[types.KeyboardButton(text="/login")]]
 
     return types.ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
+
+
+def get_miniapp_keyboard(user_id: int | None = None) -> types.InlineKeyboardMarkup | None:
+    if not config.MINIAPP_URL:
+        return None
+    return types.InlineKeyboardMarkup(inline_keyboard=[[
+        types.InlineKeyboardButton(
+            text="Открыть дневник",
+            web_app=types.WebAppInfo(url=build_miniapp_url(user_id)),
+        )
+    ]])
+
+
+def build_miniapp_url(message_user_id: int | None) -> str:
+    if not config.MINIAPP_URL:
+        return ""
+    if message_user_id is None:
+        return config.MINIAPP_URL
+
+    message = f"mealbot-miniapp:{message_user_id}".encode()
+    signature = hmac.new(config.BOT_TOKEN.encode(), message, hashlib.sha256).hexdigest()
+    separator = "&" if "?" in config.MINIAPP_URL else "?"
+    return f"{config.MINIAPP_URL}{separator}{urlencode({'uid': message_user_id, 'sig': signature})}"
+
+
+async def sync_miniapp_menu_button(user_id: int) -> None:
+    if not config.MINIAPP_URL:
+        return
+
+    try:
+        await bot.set_chat_menu_button(
+            chat_id=user_id,
+            menu_button=types.MenuButtonWebApp(
+                text="Дневник",
+                web_app=types.WebAppInfo(url=build_miniapp_url(user_id)),
+            ),
+        )
+        logger.info("Mini App menu button synced for user_id=%s", user_id)
+    except exceptions.TelegramAPIError as e:
+        logger.warning("Failed to sync Mini App menu button for user_id=%s: %s", user_id, e)
+
+
+async def sync_authenticated_menu_buttons() -> None:
+    for user_id in list(authenticated_users):
+        await sync_miniapp_menu_button(user_id)
 
 
 def is_authenticated(user_id: int) -> bool:
@@ -191,9 +261,23 @@ async def require_auth(message: Message) -> bool:
 async def cmd_start(message: Message) -> None:
     await message.answer(
         "Привет! Отправь фото еды — упаковку, блюдо или продукт на весах.\n"
-        "Можешь подписать вес или уточнение, например: \"300г\" или \"это домашний борщ\".",
+        "Можешь подписать вес или уточнение, например: \"300г\" или \"это домашний борщ\".\n\n"
+        "Мини-приложение с календарём и графиками доступно командой /app.",
         reply_markup=get_keyboard(is_authenticated(message.from_user.id)),
     )
+
+
+@dp.message(Command("app"))
+async def cmd_app(message: Message) -> None:
+    if not await require_auth(message):
+        return
+
+    keyboard = get_miniapp_keyboard(message.from_user.id)
+    if keyboard is None:
+        await message.answer("MINIAPP_URL не настроен. Добавьте публичный HTTPS URL в .env.")
+        return
+
+    await message.answer("Открой дневник питания:", reply_markup=keyboard)
 
 
 @dp.message(Command("help"))
@@ -203,7 +287,10 @@ async def cmd_help(message: Message) -> None:
             "Вот доступные команды:\n"
             "/today — краткий итог за сегодня\n"
             "/report — подробный отчёт БЖУ за сегодня\n"
+            "/app — открыть Mini App с календарём и графиками\n"
+            "/cheatday — включить/выключить читмил на текущий день\n"
             "/delete — удалить последнюю запись\n"
+            "Расход калорий берётся из Garmin через Health Connect, если данные уже синхронизированы.\n"
             "/fitness_auth — ссылка для авторизации Google Fitness\n"
             "/fitness_status — статус Google Fitness авторизации"
         )
@@ -238,6 +325,7 @@ async def cmd_login(message: Message) -> None:
     if password == config.ACCESS_PASSWORD:
         authenticated_users.add(message.from_user.id)
         save_authenticated_user(message.from_user.id)
+        await sync_miniapp_menu_button(message.from_user.id)
         logger.info("User %s logged in with inline password", message.from_user.id)
         await message.answer(
             "✅ Вход выполнен. Теперь доступны команды.",
@@ -285,6 +373,48 @@ async def cmd_fitness_status(message: Message) -> None:
         )
 
 
+@dp.message(Command("cheatday"))
+async def cmd_cheatday(message: Message) -> None:
+    if not await require_auth(message):
+        return
+
+    user_id = message.from_user.id
+    current_food_day = get_current_food_day(config.TIMEZONE, DAY_START_HOUR)
+    text = (message.text or "").split(maxsplit=1)
+    current_value = is_cheatmeal_day(user_id, current_food_day)
+    if len(text) > 1:
+        raw_value = text[1].strip().lower()
+        if raw_value in {"on", "вкл", "да", "yes", "1"}:
+            next_value = True
+        elif raw_value in {"off", "выкл", "нет", "no", "0"}:
+            next_value = False
+        else:
+            await message.answer("Используй /cheatday, /cheatday on или /cheatday off.")
+            return
+    else:
+        next_value = not current_value
+
+    try:
+        set_cheatmeal_day(
+            user_id,
+            current_food_day,
+            next_value,
+            tz=config.TIMEZONE,
+            note="Telegram command",
+        )
+    except Exception as e:
+        logger.exception("Ошибка сохранения читмил-дня user_id=%s: %s", user_id, e)
+        await message.answer("⚠️ Не удалось сохранить флаг читмила. Попробуй позже.")
+        return
+
+    if next_value:
+        await message.answer(
+            f"🍕 {current_food_day.isoformat()} отмечен как читмил. Приход за день не будет учитываться, расход останется."
+        )
+    else:
+        await message.answer(f"✅ Читмил для {current_food_day.isoformat()} выключен. Приход снова учитывается.")
+
+
 @dp.message(Command("today"))
 async def cmd_today(message: Message) -> None:
     logger.info("Today requested by user_id=%s", message.from_user.id)
@@ -293,23 +423,44 @@ async def cmd_today(message: Message) -> None:
 
     user_id = message.from_user.id
     records = get_today_logs(user_id, tz=config.TIMEZONE)
+    current_food_day = get_current_food_day(config.TIMEZONE, DAY_START_HOUR)
+    is_cheatmeal = is_cheatmeal_day(user_id, current_food_day)
 
     burned = 0.0
     burned_note = ""
-    try:
-        burned = fetch_calories_since_day_start(config.TIMEZONE, DAY_START_HOUR)
-        burned_note = " (Google Fit API)"
-    except Exception as e:
-        burned_note = f" (не удалось получить текущие данные из Google Fit: {e})"
+    health_connect_calories = fetch_health_connect_calories_for_date(current_food_day)
+    if health_connect_calories:
+        burned, source_note = health_connect_calories
+        burned_note = f" ({source_note})"
+    else:
+        try:
+            burned = fetch_calories_since_day_start(config.TIMEZONE, DAY_START_HOUR)
+            burned_note = " (Google Fit API)"
+        except Exception as e:
+            burned_note = f" (Garmin/Health Connect ещё не прислал данные; Google Fit тоже недоступен: {e})"
 
-    total_kcal = sum(float(r.get("kcal", 0) or 0) for r in records)
-    total_protein = sum(float(r.get("protein_g", 0) or 0) for r in records)
-    total_fat = sum(float(r.get("fat_g", 0) or 0) for r in records)
-    total_carbs = sum(float(r.get("carbs_g", 0) or 0) for r in records)
+    raw_total_kcal = sum(float(r.get("kcal", 0) or 0) for r in records)
+    raw_total_protein = sum(float(r.get("protein_g", 0) or 0) for r in records)
+    raw_total_fat = sum(float(r.get("fat_g", 0) or 0) for r in records)
+    raw_total_carbs = sum(float(r.get("carbs_g", 0) or 0) for r in records)
+    if is_cheatmeal:
+        total_kcal = total_protein = total_fat = total_carbs = 0.0
+    else:
+        total_kcal = raw_total_kcal
+        total_protein = raw_total_protein
+        total_fat = raw_total_fat
+        total_carbs = raw_total_carbs
 
     lines = [
         f"📊 За сегодня (с {DAY_START_HOUR:02d}:00):",
-        f"🔥 Съедено: {int(total_kcal)} ккал",
+    ]
+    if is_cheatmeal:
+        lines += [
+            "🍕 Читмил-день: приход не учитывается, расход считается.",
+            f"Съедено фактически: {int(raw_total_kcal)} ккал",
+        ]
+    lines += [
+        f"🔥 Съедено в статистике: {int(total_kcal)} ккал",
         f"🔥 Сожжено на момент вызова: {int(burned)} ккал{burned_note}",
         f"⚖️ Разница: {int(total_kcal - burned)} ккал",
         "",
@@ -336,6 +487,7 @@ async def cmd_report(message: Message) -> None:
 
     user_id = message.from_user.id
     yesterday = datetime.now(timezone(config.TIMEZONE)).date() - timedelta(days=1)
+    await refresh_report_expenditure(yesterday)
     text = build_daily_report(user_id, tz=config.TIMEZONE, target_date=yesterday)
     if text:
         await message.answer(text, parse_mode="HTML")
@@ -583,6 +735,7 @@ async def send_daily_reports() -> None:
     yesterday = datetime.now(timezone(config.TIMEZONE)).date() - timedelta(days=1)
     for user_id in config.REPORT_USER_IDS:
         try:
+            await refresh_report_expenditure(yesterday)
             text = build_daily_report(
                 user_id,
                 tz=config.TIMEZONE,
@@ -597,6 +750,40 @@ async def send_daily_reports() -> None:
             logger.exception("Ошибка отправки отчёта user_id=%s: %s", user_id, e)
 
 
+async def refresh_report_expenditure(target_date) -> None:
+    """Refresh saved expenditure before building a daily report."""
+    try:
+        logger.info("Refreshing expenditure before report for %s", target_date)
+        garmin_synced = False
+        try:
+            total, note = await asyncio.to_thread(sync_garmin_cloud_calories_for_date, target_date)
+            garmin_synced = True
+            logger.info("Garmin Connect cloud expenditure synced for %s: %.1f (%s)", target_date, total, note)
+        except GarminConnectNotConfigured as e:
+            logger.warning("Garmin Connect cloud is not configured: %s", e)
+        except Exception as e:
+            logger.exception("Garmin Connect cloud sync failed for %s: %s", target_date, e)
+
+        if not garmin_synced:
+            if config.STRICT_EXPENDITURE_SOURCE:
+                logger.warning(
+                    "Strict expenditure mode enabled: Google Fit fallback skipped for report date %s",
+                    target_date,
+                )
+            else:
+                await asyncio.to_thread(sync_fitness_rows, target_date, target_date, config.TIMEZONE)
+
+        await asyncio.to_thread(
+            aggregate_daily_calories.main,
+            target_date,
+            target_date,
+            False,
+            None,
+        )
+    except Exception as e:
+        logger.exception("Failed to refresh expenditure before report for %s: %s", target_date, e)
+
+
 async def send_daily_fitness_ingestion() -> None:
     try:
         end_date = datetime.now(timezone(config.TIMEZONE)).date() - timedelta(days=1)
@@ -604,9 +791,25 @@ async def send_daily_fitness_ingestion() -> None:
 
         logger.info("Syncing fitness and daily calories from %s to %s", start_date, end_date)
 
-        await asyncio.to_thread(sync_fitness_rows, start_date, end_date, config.TIMEZONE)
+        garmin_synced = False
+        try:
+            synced = await asyncio.to_thread(sync_garmin_cloud_calories_range, start_date, end_date)
+            garmin_synced = bool(synced)
+            logger.info("Garmin Connect cloud expenditure synced for %d days", len(synced))
+        except GarminConnectNotConfigured as e:
+            logger.warning("Garmin Connect cloud is not configured: %s", e)
+        except Exception as e:
+            logger.exception("Garmin Connect cloud range sync failed for %s..%s: %s", start_date, end_date, e)
 
-        import aggregate_daily_calories
+        if not garmin_synced:
+            if config.STRICT_EXPENDITURE_SOURCE:
+                logger.warning(
+                    "Strict expenditure mode enabled: Google Fit fallback skipped for range %s..%s",
+                    start_date,
+                    end_date,
+                )
+            else:
+                await asyncio.to_thread(sync_fitness_rows, start_date, end_date, config.TIMEZONE)
 
         await asyncio.to_thread(
             aggregate_daily_calories.main,
@@ -616,7 +819,7 @@ async def send_daily_fitness_ingestion() -> None:
             None,
         )
 
-        logger.info("Daily Google Fitness calories ingested and daily_calories synced: %s..%s", start_date, end_date)
+        logger.info("Daily fitness calories ingested and daily_calories synced: %s..%s", start_date, end_date)
     except Exception as e:
         logger.exception("Failed to sync daily fitness and calories: %s", e)
 
@@ -627,19 +830,22 @@ async def main() -> None:
     await bot.set_my_commands([
         types.BotCommand(command="start", description="Начало работы"),
         types.BotCommand(command="login", description="Войти"),
+        types.BotCommand(command="app", description="Открыть дневник питания"),
         types.BotCommand(command="today", description="Итог за сегодня"),
         types.BotCommand(command="report", description="Отчёт за сегодня"),
+        types.BotCommand(command="cheatday", description="Переключить читмил-день"),
         types.BotCommand(command="delete", description="Удалить последнюю запись"),
-        types.BotCommand(command="fitness_auth", description="Авторизовать Google Fitness"),
-        types.BotCommand(command="fitness_status", description="Статус Google Fitness"),
+        types.BotCommand(command="fitness_auth", description="Авторизовать Google Fitness fallback"),
+        types.BotCommand(command="fitness_status", description="Статус Google Fitness fallback"),
         types.BotCommand(command="help", description="Помощь"),
     ])
+    await sync_authenticated_menu_buttons()
 
     await start_web_server()
 
     scheduler = AsyncIOScheduler(timezone=config.TIMEZONE)
     scheduler.add_job(send_daily_reports, "cron", hour=DAY_START_HOUR, minute=0)
-    scheduler.add_job(send_daily_fitness_ingestion, "cron", hour="0,6,12,18", minute=0)
+    scheduler.add_job(send_daily_fitness_ingestion, "cron", hour="6,12,18", minute=0)
     scheduler.start()
 
     logger.info("Бот запущен")

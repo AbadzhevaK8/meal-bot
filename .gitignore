@@ -48,6 +48,9 @@ n8n-work-mails-*.json
 # Logs
 *.log
 bot.log
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
 
 # Temporary files
 *.tmp

@@ -1,11 +1,16 @@
 import logging
 from datetime import date, datetime, timedelta
 
+from config import load_config
 from google_fitness import fetch_daily_calories_for_date
-from health_connect import fetch_health_connect_calories_for_date
 from pytz import timezone
 
-from sheets import get_logs_for_date, get_saved_fitness_calories_for_date
+from sheets import (
+    get_daily_calorie_summaries_for_range,
+    get_logs_for_date,
+    get_saved_fitness_calories_for_range,
+    is_cheatmeal_day,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +40,26 @@ def _check(pct: float, lo: float, hi: float) -> str:
     return "✅" if lo <= pct <= hi else "❌"
 
 
+def _get_saved_report_expenditure(user_id: int, target_date: date, tz: str) -> tuple[float, str] | None:
+    config = load_config()
+    fitness_summaries = get_saved_fitness_calories_for_range(
+        target_date,
+        target_date,
+        include_google_fit_fallback=not config.STRICT_EXPENDITURE_SOURCE,
+    )
+    fitness_summary = fitness_summaries.get(target_date.isoformat())
+    if fitness_summary and fitness_summary.get("expenditure_kcal") is not None:
+        return float(fitness_summary["expenditure_kcal"]), str(fitness_summary.get("note", ""))
+
+    if not config.STRICT_EXPENDITURE_SOURCE:
+        daily_summaries = get_daily_calorie_summaries_for_range(user_id, target_date, target_date, tz=tz)
+        daily_summary = daily_summaries.get(target_date.isoformat())
+        if daily_summary and daily_summary.get("expenditure_kcal") is not None:
+            return float(daily_summary["expenditure_kcal"]), str(daily_summary.get("note", ""))
+
+    return None
+
+
 def build_daily_report(
     user_id: int,
     tz: str = "Europe/Moscow",
@@ -59,33 +84,42 @@ def build_daily_report(
     if not records:
         return None
 
-    total_kcal = sum(float(r.get("kcal", 0) or 0) for r in records)
-    total_protein = sum(float(r.get("protein_g", 0) or 0) for r in records)
-    total_fat = sum(float(r.get("fat_g", 0) or 0) for r in records)
-    total_carbs = sum(float(r.get("carbs_g", 0) or 0) for r in records)
+    raw_total_kcal = sum(float(r.get("kcal", 0) or 0) for r in records)
+    raw_total_protein = sum(float(r.get("protein_g", 0) or 0) for r in records)
+    raw_total_fat = sum(float(r.get("fat_g", 0) or 0) for r in records)
+    raw_total_carbs = sum(float(r.get("carbs_g", 0) or 0) for r in records)
+    is_cheatmeal = is_cheatmeal_day(user_id, target_date)
 
-    total_burned = 0.0
+    if is_cheatmeal:
+        total_kcal = total_protein = total_fat = total_carbs = 0.0
+    else:
+        total_kcal = raw_total_kcal
+        total_protein = raw_total_protein
+        total_fat = raw_total_fat
+        total_carbs = raw_total_carbs
+
+    total_burned: float | None = 0.0
     burned_note = ""
     fit_data_time = ""
-    health_connect_calories = None
-    if day_start_hour == 0:
-        health_connect_calories = fetch_health_connect_calories_for_date(target_date)
-    if health_connect_calories:
-        total_burned, burned_note_text = health_connect_calories
-        burned_note = f" ({burned_note_text})"
+    saved_expenditure = _get_saved_report_expenditure(user_id, target_date, tz)
+    if saved_expenditure:
+        total_burned, burned_note_text = saved_expenditure
+        burned_note = f" ({burned_note_text})" if burned_note_text else ""
     else:
-        try:
-            total_burned = fetch_daily_calories_for_date(target_date, tz, day_start_hour)
-            fit_data_time = datetime.now(timezone(tz)).strftime("%H:%M")
-        except Exception as e:
-            saved_fitness_calories = None
-            if day_start_hour == 0:
-                saved_fitness_calories = get_saved_fitness_calories_for_date(target_date)
-            if saved_fitness_calories:
-                total_burned, saved_fitness_note = saved_fitness_calories
-                burned_note = f" ({saved_fitness_note}; Google Fit временно недоступен: {e})"
-            else:
+        config = load_config()
+        if not config.STRICT_EXPENDITURE_SOURCE:
+            try:
+                total_burned = fetch_daily_calories_for_date(target_date, tz, day_start_hour)
+                fit_data_time = datetime.now(timezone(tz)).strftime("%H:%M")
+            except Exception as e:
+                total_burned = None
                 burned_note = f" (не удалось получить из Google Fit: {e})"
+        elif not config.GARMIN_CONNECT_EMAIL or not config.GARMIN_CONNECT_PASSWORD:
+            total_burned = None
+            burned_note = " (Garmin Connect cloud не настроен на сервере; ручного/Health Connect значения тоже нет)"
+        else:
+            total_burned = None
+            burned_note = " (Garmin Connect/manual/Health Connect не дали точное значение)"
 
     if total_kcal > 0:
         pct_protein = (total_protein * PROTEIN_KCAL / total_kcal) * 100
@@ -97,8 +131,12 @@ def build_daily_report(
     date_str = f"{target_date.day} {MONTHS_RU[target_date.month]}"
     fit_note = f" (Google Fit данные на {fit_data_time})" if fit_data_time else ""
 
-    lines = [
-        f"📊 <b>Итог дня — {date_str}</b>",
+    lines = [f"📊 <b>Итог дня — {date_str}</b>"]
+    if is_cheatmeal:
+        lines += [
+            "🍕 <b>Читмил-день:</b> приход не учитывается в статистике, расход сохранён.",
+        ]
+    lines += [
         "",
         "🍽 <b>Приёмы пищи:</b>",
     ]
@@ -110,8 +148,16 @@ def build_daily_report(
     lines += [
         "",
         f"🔥 <b>Итого съедено: {int(total_kcal)} ккал</b>",
-        f"🔥 <b>Сожжено: {int(total_burned)} ккал</b>{fit_note}{burned_note}",
-        f"⚖️ Разница: {int(total_kcal - total_burned)} ккал",
+        (
+            f"🔥 <b>Сожжено: {int(total_burned)} ккал</b>{fit_note}{burned_note}"
+            if total_burned is not None
+            else f"🔥 <b>Сожжено: нет точных данных</b>{burned_note}"
+        ),
+        (
+            f"⚖️ Разница: {int(total_kcal - total_burned)} ккал"
+            if total_burned is not None
+            else "⚖️ Разница: нет точных данных"
+        ),
         f"  🥩 {int(total_protein)}г  🧈 {int(total_fat)}г  🍞 {int(total_carbs)}г",
         "",
         "📐 <b>БЖУ (% от калорийности):</b>",

@@ -10,7 +10,17 @@ sys.path.insert(0, str(ROOT))
 
 from config import load_config
 from google_fitness import fetch_calories_range, has_saved_tokens
-from sheets import log_daily_calories, _get_daily_calories_sheet, _get_fitness_sheet, _get_sheet
+from sheets import (
+    GARMIN_CLOUD_PREFIX,
+    MANUAL_EXPENDITURE_PREFIX,
+    get_cheatmeal_days_for_range,
+    is_complete_health_connect_total,
+    log_daily_calories,
+    _is_sheets_configured,
+    _get_daily_calories_sheet,
+    _get_fitness_sheet,
+    _get_sheet,
+)
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -59,20 +69,49 @@ def build_intake_by_user_date(meal_rows: list[dict], start_date: date) -> dict[t
     return intake
 
 
-def build_expenditure_by_date(fitness_rows: list[dict], start_date: date) -> dict[str, float]:
-    expenditure = {}
+def build_expenditure_by_date(
+    fitness_rows: list[dict],
+    start_date: date,
+    include_google_fit_fallback: bool = True,
+) -> dict[str, float]:
+    manual = {}
+    garmin_cloud = {}
+    health_connect = {}
+    fallback = {}
     for row in fitness_rows:
         timestamp = row.get("timestamp", "")
         description = row.get("description", "")
         kcal = float(row.get("kcal", 0) or 0)
-        row_date = _parse_date_from_description(description) or _parse_date_from_timestamp(timestamp)
+        if description.startswith(MANUAL_EXPENDITURE_PREFIX):
+            row_date = description.removeprefix(MANUAL_EXPENDITURE_PREFIX).strip()
+            target = manual
+        elif description.startswith(GARMIN_CLOUD_PREFIX):
+            row_date = description.removeprefix(GARMIN_CLOUD_PREFIX).strip()
+            target = garmin_cloud
+        elif description.startswith("Health Connect total calories for "):
+            row_date = description.removeprefix("Health Connect total calories for ").strip()
+            try:
+                parsed_row_date = date.fromisoformat(row_date)
+            except ValueError:
+                continue
+            if not is_complete_health_connect_total(parsed_row_date, row.get("note", "")):
+                continue
+            target = health_connect
+        else:
+            if not include_google_fit_fallback:
+                continue
+            row_date = _parse_date_from_description(description) or _parse_date_from_timestamp(timestamp)
+            target = fallback
         if not row_date:
             continue
-        parsed = date.fromisoformat(row_date)
+        try:
+            parsed = date.fromisoformat(row_date)
+        except ValueError:
+            continue
         if parsed < start_date:
             continue
-        expenditure[row_date] = expenditure.get(row_date, 0.0) + kcal
-    return expenditure
+        target[row_date] = target.get(row_date, 0.0) + kcal
+    return {**fallback, **health_connect, **garmin_cloud, **manual}
 
 
 def get_existing_daily_rows(worksheet) -> dict[tuple[str, str], int]:
@@ -94,9 +133,9 @@ def get_existing_daily_rows(worksheet) -> dict[tuple[str, str], int]:
 
 def main(start_date: date, end_date: date, overwrite: bool = False, user_id: str | None = None) -> None:
     config = load_config()
-    if not config.GOOGLE_SHEETS_ID or not config.GOOGLE_CREDENTIALS_JSON:
-        logger.error("GOOGLE_SHEETS_ID или GOOGLE_CREDENTIALS_JSON не настроены. Проверьте .env или переменные окружения.")
-        raise ValueError("Google Sheets configuration missing")
+    if not _is_sheets_configured():
+        logger.error("Хранилище MealBot не настроено. Проверьте .env или переменные окружения.")
+        raise ValueError("MealBot storage configuration missing")
 
     meal_sheet = _get_sheet(config.GOOGLE_CREDENTIALS_JSON, config.GOOGLE_SHEETS_ID)
     daily_sheet = _get_daily_calories_sheet(config.GOOGLE_CREDENTIALS_JSON, config.GOOGLE_SHEETS_ID)
@@ -107,11 +146,32 @@ def main(start_date: date, end_date: date, overwrite: bool = False, user_id: str
     intake_by_user_date = build_intake_by_user_date(meal_rows, start_date)
     logger.info("Intake entries from %s to %s: %d", start_date, end_date, len(intake_by_user_date))
 
-    expenditure_by_date = {}
-    if has_saved_tokens():
+    fitness_sheet = _get_fitness_sheet(config.GOOGLE_CREDENTIALS_JSON, config.GOOGLE_SHEETS_ID)
+    fitness_rows = _load_sheet_rows(fitness_sheet)
+    saved_expenditure_by_date = build_expenditure_by_date(
+        fitness_rows,
+        start_date,
+        include_google_fit_fallback=not config.STRICT_EXPENDITURE_SOURCE,
+    )
+    if saved_expenditure_by_date:
+        logger.info("Expenditure days loaded from fitness sheet: %d", len(saved_expenditure_by_date))
+
+    expenditure_by_date = dict(saved_expenditure_by_date)
+    if config.STRICT_EXPENDITURE_SOURCE:
+        logger.info("STRICT_EXPENDITURE_SOURCE enabled: skipping Google Fit expenditure fallback.")
+    elif has_saved_tokens():
         try:
-            expenditure_by_date = fetch_calories_range(start_date, end_date, tz_name=config.TIMEZONE)
-            logger.info("Expenditure days fetched from Google Fit: %d", len(expenditure_by_date))
+            google_fit_by_date = fetch_calories_range(start_date, end_date, tz_name=config.TIMEZONE)
+            missing_google_fit = {
+                key: value
+                for key, value in google_fit_by_date.items()
+                if key not in expenditure_by_date
+            }
+            expenditure_by_date.update(missing_google_fit)
+            logger.info(
+                "Expenditure days fetched from Google Fit fallback: %d",
+                len(missing_google_fit),
+            )
         except Exception as e:
             logger.warning(
                 "Не удалось получить расход калорий из Google Fit: %s. Попытка использовать лист fitness.",
@@ -120,18 +180,17 @@ def main(start_date: date, end_date: date, overwrite: bool = False, user_id: str
     else:
         logger.warning("Google Fitness tokens не настроены. Использую данные из листа fitness.")
 
-    if not expenditure_by_date:
-        fitness_sheet = _get_fitness_sheet(config.GOOGLE_CREDENTIALS_JSON, config.GOOGLE_SHEETS_ID)
-        fitness_rows = _load_sheet_rows(fitness_sheet)
-        expenditure_by_date = build_expenditure_by_date(fitness_rows, start_date)
-        logger.info("Expenditure days loaded from fitness sheet: %d", len(expenditure_by_date))
-
     user_ids = {row.get("user_id") for row in meal_rows if row.get("user_id")}
     user_ids.update(str(uid) for uid in config.REPORT_USER_IDS)
     if user_id:
         user_ids.add(user_id)
     user_ids = {uid for uid in user_ids if uid}
     logger.info("Target user IDs: %s", sorted(user_ids))
+    cheatmeal_days_by_user = {
+        uid: get_cheatmeal_days_for_range(int(uid), start_date, end_date)
+        for uid in user_ids
+        if str(uid).isdigit()
+    }
 
     if not user_ids:
         logger.warning("Нет user_id для записи. Укажите REPORT_USER_IDS, --user-id или добавьте записи в таблицу meal_bot.")
@@ -159,13 +218,14 @@ def main(start_date: date, end_date: date, overwrite: bool = False, user_id: str
     rows_written = 0
     for target_date in dates:
         target_date_str = target_date.isoformat()
-        expenditure = expenditure_by_date.get(target_date_str, 0.0)
+        expenditure = expenditure_by_date.get(target_date_str)
         for user_id in sorted(user_ids):
             if not user_id:
                 continue
             key = (user_id, target_date_str)
-            intake = intake_by_user_date.get(key, 0.0)
-            if intake == 0 and expenditure == 0:
+            is_cheatmeal = target_date_str in cheatmeal_days_by_user.get(user_id, set())
+            intake = 0.0 if is_cheatmeal else intake_by_user_date.get(key, 0.0)
+            if intake == 0 and expenditure is None:
                 continue
             if not overwrite and key in existing:
                 row_number = existing[key]
@@ -173,13 +233,16 @@ def main(start_date: date, end_date: date, overwrite: bool = False, user_id: str
                 if len(existing_row) < 7:
                     existing_row += [""] * (7 - len(existing_row))
                 current_intake = float(existing_row[3] or 0)
-                current_expenditure = float(existing_row[4] or 0)
-                new_intake = intake if intake != 0 else current_intake
-                new_expenditure = expenditure if expenditure != 0 else current_expenditure
+                current_expenditure = float(existing_row[4]) if str(existing_row[4]).strip() else None
+                new_intake = intake if intake != 0 or is_cheatmeal else current_intake
+                new_expenditure = expenditure if expenditure is not None else current_expenditure
                 if new_intake == current_intake and new_expenditure == current_expenditure:
                     continue
-                new_difference = new_intake - new_expenditure
+                new_difference = None if new_expenditure is None else new_intake - new_expenditure
                 now = datetime.now().strftime("%Y-%m-%d %H:%M")
+                note = f"API import {start_date.isoformat()}..{end_date.isoformat()}"
+                if is_cheatmeal:
+                    note += "; читмил: приход не учитывается"
                 daily_sheet.update(
                     f"A{row_number}:G{row_number}",
                     [[
@@ -187,14 +250,17 @@ def main(start_date: date, end_date: date, overwrite: bool = False, user_id: str
                         user_id,
                         target_date_str,
                         round(new_intake, 1),
-                        round(new_expenditure, 1),
-                        round(new_difference, 1),
-                        f"API import {start_date.isoformat()}..{end_date.isoformat()}",
+                        "" if new_expenditure is None else round(new_expenditure, 1),
+                        "" if new_difference is None else round(new_difference, 1),
+                        note,
                     ]],
                 )
                 rows_written += 1
                 continue
-            difference = intake - expenditure
+            difference = None if expenditure is None else intake - expenditure
+            note = f"API import {start_date.isoformat()}..{end_date.isoformat()}"
+            if is_cheatmeal:
+                note += "; читмил: приход не учитывается"
             log_daily_calories(
                 user_id,
                 intake,
@@ -202,7 +268,7 @@ def main(start_date: date, end_date: date, overwrite: bool = False, user_id: str
                 difference,
                 target_date_str,
                 tz=config.TIMEZONE,
-                note=f"API import {start_date.isoformat()}..{end_date.isoformat()}",
+                note=note,
             )
             rows_written += 1
 
