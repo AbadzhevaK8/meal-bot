@@ -747,6 +747,47 @@ h2 {
   box-shadow: var(--shadow-subtle-3);
 }
 
+.chart-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 42px;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-charcoal-border);
+  border-radius: 8px;
+  background: var(--color-canvas-white);
+  box-shadow: var(--shadow-subtle-3);
+}
+
+.chart-total span {
+  color: var(--color-charcoal-border);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.chart-total strong {
+  min-width: 0;
+  color: var(--color-midnight-ink);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+.chart-total.deficit {
+  background: var(--color-card-mint);
+}
+
+.chart-total.surplus {
+  background: var(--color-card-lavender);
+}
+
+.chart-total.neutral {
+  background: var(--color-pale-ash);
+}
+
 .day-actions {
   justify-content: flex-end;
   gap: 8px;

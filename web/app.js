@@ -95,6 +95,7 @@ const els = {
   dayCount: document.getElementById("dayCount"),
   expenditureButton: document.getElementById("expenditureButton"),
   cheatdayToggle: document.getElementById("cheatdayToggle"),
+  chartTotal: document.getElementById("chartTotal"),
   chartCanvas: document.getElementById("chartCanvas"),
   toast: document.getElementById("toast"),
   loadingOverlay: document.getElementById("loadingOverlay"),
@@ -154,6 +155,7 @@ function authSearch() {
 async function requestJson(url, options = {}) {
   const response = await fetch(url, {
     ...options,
+    cache: "no-store",
     headers: { ...apiHeaders(), ...(options.headers || {}) },
   });
   if (!response.ok) throw new Error(await response.text());
@@ -296,6 +298,38 @@ function dominantMacro(meal) {
   ];
   const top = macros.reduce((best, current) => (current[1] > best[1] ? current : best));
   return top[1] > 0 ? top[0] : "empty";
+}
+
+function formatKcal(value) {
+  return `${Math.round(Math.abs(value)).toLocaleString("ru-RU")} ккал`;
+}
+
+function setChartTotal(days, isBalanceChart) {
+  if (!els.chartTotal) return;
+  if (!isBalanceChart) {
+    els.chartTotal.hidden = true;
+    els.chartTotal.textContent = "";
+    els.chartTotal.className = "chart-total";
+    return;
+  }
+
+  const values = days
+    .filter((day) => !day.is_cheatmeal)
+    .map((day) => day.balance?.difference_kcal)
+    .filter((value) => typeof value === "number" && Number.isFinite(value));
+
+  if (!values.length) {
+    els.chartTotal.hidden = false;
+    els.chartTotal.className = "chart-total neutral";
+    els.chartTotal.innerHTML = "<span>Итого за период</span><strong>нет данных по расходу</strong>";
+    return;
+  }
+
+  const total = values.reduce((sum, value) => sum + value, 0);
+  const kind = total > 0 ? "профицит" : total < 0 ? "дефицит" : "баланс";
+  els.chartTotal.hidden = false;
+  els.chartTotal.className = `chart-total ${total > 0 ? "surplus" : total < 0 ? "deficit" : "neutral"}`;
+  els.chartTotal.innerHTML = `<span>Итого за период</span><strong>${kind}: ${formatKcal(total)}</strong>`;
 }
 
 function renderSummary() {
@@ -708,6 +742,9 @@ function drawChart() {
   ctx.clearRect(0, 0, rect.width, 220);
 
   const days = state.days;
+  const isMacroChart = state.chartMode === "macros";
+  const isBalanceChart = state.chartMode === "balance";
+  setChartTotal(days, isBalanceChart);
   if (!days.length) {
     ctx.fillStyle = chartText;
     ctx.fillText("Нет данных за период", 12, 30);
@@ -716,8 +753,6 @@ function drawChart() {
 
   const width = rect.width;
   const height = 220;
-  const isMacroChart = state.chartMode === "macros";
-  const isBalanceChart = state.chartMode === "balance";
   const padding = { top: isMacroChart || isBalanceChart ? 48 : 34, right: isMacroChart ? 28 : 12, bottom: 28, left: 32 };
   const plotW = width - padding.left - padding.right;
   const plotH = height - padding.top - padding.bottom;
@@ -791,6 +826,7 @@ function drawChart() {
 
   if (isBalanceChart) {
     const balanceValues = days.map((day) => {
+      if (day.is_cheatmeal) return null;
       const value = day.balance?.difference_kcal;
       return typeof value === "number" && Number.isFinite(value) ? value : null;
     });

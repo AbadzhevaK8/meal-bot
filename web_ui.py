@@ -162,6 +162,12 @@ def _truthy_query_flag(value: str | None) -> bool:
     return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _json_response_no_store(payload: dict) -> web.Response:
+    response = web.json_response(payload)
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 def _float_value(value) -> float:
     try:
         return float(str(value or 0).replace(",", "."))
@@ -427,7 +433,7 @@ async def api_meals(request: web.Request) -> web.Response:
     cache_key = (user_id, start.isoformat(), end.isoformat())
     cached = _api_meals_cache.get(cache_key)
     if not live_sync_requested and cached and time.monotonic() - cached[0] <= API_MEALS_CACHE_TTL_SECONDS:
-        return web.json_response(cached[1])
+        return _json_response_no_store(cached[1])
 
     records_task = asyncio.create_task(asyncio.to_thread(
         get_meal_logs_for_range,
@@ -540,7 +546,7 @@ async def api_meals(request: web.Request) -> web.Response:
         "days": sorted(days, key=lambda item: item["date"]),
     }
     _api_meals_cache[cache_key] = (time.monotonic(), payload)
-    return web.json_response(payload)
+    return _json_response_no_store(payload)
 
 
 async def api_update_day_flag(request: web.Request) -> web.Response:
