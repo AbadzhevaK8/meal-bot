@@ -2093,6 +2093,32 @@ body[data-theme="duolingo"] .empty-state {
   color: #777777;
 }
 
+body[data-theme="duolingo"] .metric-card strong,
+body[data-theme="duolingo"] .target-row strong,
+body[data-theme="duolingo"] .macro-detail strong,
+body[data-theme="duolingo"] .meal-row strong,
+body[data-theme="duolingo"] .meal-kcal {
+  color: #3c3c3c;
+}
+
+body[data-theme="duolingo"] .nutrition-panel .eyebrow,
+body[data-theme="duolingo"] .nutrition-panel h2,
+body[data-theme="duolingo"] .nutrition-panel .target-row span,
+body[data-theme="duolingo"] .nutrition-panel .target-meta,
+body[data-theme="duolingo"] .nutrition-panel .macro-detail,
+body[data-theme="duolingo"] .nutrition-panel .macro-detail strong,
+body[data-theme="duolingo"] .nutrition-panel .target-marker {
+  color: #4b4b4b;
+}
+
+body[data-theme="duolingo"] .nutrition-panel h2 {
+  color: #3f8f01;
+}
+
+body[data-theme="duolingo"] .nutrition-panel .macro-dot {
+  border-color: #4b4b4b;
+}
+
 body[data-theme="duolingo"] .panel,
 body[data-theme="duolingo"] .metric-card,
 body[data-theme="duolingo"] .theme-option,
@@ -2147,7 +2173,8 @@ body[data-theme="duolingo"] .toast {
 body[data-theme="duolingo"] .secondary,
 body[data-theme="duolingo"] .expenditure-toggle,
 body[data-theme="duolingo"] .cheat-toggle {
-  color: #1cb0f6;
+  color: #1679b8;
+  background: #ffffff;
 }
 
 body[data-theme="duolingo"] .metric-card:nth-child(1),
