@@ -522,8 +522,8 @@ function renderCalendar() {
     button.className = `day ${data ? "has-data" : ""} ${balanceClass} ${isCheatmeal ? "cheatday" : ""} ${key === state.selectedDay ? "selected" : ""}`;
     button.innerHTML = `
       <span class="num">${day}</span>
-      <span class="kcal">${data ? (isCheatmeal ? "Читмил" : `Е ${intake}`) : ""}</span>
-      <span class="burn">${expenditure == null ? "" : `Р ${expenditure}`}</span>
+      <span class="kcal">${data ? (isCheatmeal ? "читмил" : intake) : ""}</span>
+      <span class="burn">${expenditure == null ? "" : expenditure}</span>
     `;
     button.addEventListener("click", () => {
       state.selectedDay = key;

@@ -149,6 +149,8 @@ body[data-theme="seed"] {
 
 html {
   background: var(--color-canvas-white);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
@@ -178,7 +180,9 @@ button {
 .shell {
   width: min(100%, 980px);
   margin: 0 auto;
-  padding: 0 14px max(108px, calc(env(safe-area-inset-bottom) + 86px));
+  display: flex;
+  flex-direction: column;
+  padding: 0 14px max(28px, env(safe-area-inset-bottom));
 }
 
 .topbar,
@@ -277,7 +281,7 @@ h2 {
 .dev-auth button:active,
 .meal-row:active,
 .day:active {
-  transform: translate(1px, 1px);
+  scale: 0.96;
   box-shadow: var(--shadow-subtle-3);
 }
 
@@ -308,16 +312,13 @@ h2 {
 }
 
 .main-tabs {
-  position: fixed;
-  right: 14px;
-  bottom: max(12px, env(safe-area-inset-bottom));
-  left: 14px;
+  order: 20;
   z-index: 18;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
-  width: min(540px, calc(100vw - 28px));
-  margin: 0 auto;
+  width: 100%;
+  margin: 18px auto 0;
   padding: 5px;
   border: 1px solid var(--color-charcoal-border);
   border-radius: 14px;
@@ -373,6 +374,7 @@ h2 {
 }
 
 .tab-page {
+  order: 10;
   display: block;
 }
 
@@ -445,7 +447,7 @@ h2 {
 .calendar {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 6px;
+  gap: 5px;
 }
 
 .weekdays {
@@ -458,12 +460,19 @@ h2 {
 }
 
 .day {
-  min-height: 72px;
+  min-height: 66px;
   border: 1px solid var(--color-charcoal-border);
   border-radius: 4px;
+  padding: 7px 3px 6px;
   color: var(--color-midnight-ink);
   background: var(--color-canvas-white);
   box-shadow: var(--shadow-subtle-3);
+  line-height: 1.1;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  transition-property: background-color, border-color, scale, box-shadow;
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
 }
 
 .day.empty {
@@ -477,16 +486,20 @@ h2 {
 }
 
 .day .num {
+  margin-bottom: 6px;
+  font-size: 16px;
   font-weight: 700;
+  line-height: 1;
 }
 
 .day .kcal,
 .day .burn {
-  margin-top: 4px;
+  margin-top: 3px;
   color: var(--color-charcoal-border);
   font-size: 11px;
-  line-height: 1.25;
+  line-height: 1.05;
   overflow-wrap: anywhere;
+  white-space: nowrap;
 }
 
 .day .burn {
@@ -1665,6 +1678,181 @@ body[data-theme="seed"] .day.selected {
 body[data-theme="seed"] .day.selected .kcal,
 body[data-theme="seed"] .day.selected .burn {
   color: rgba(255, 253, 244, 0.76);
+}
+
+body[data-theme="peak"] .panel,
+body[data-theme="peak"] .metric-card,
+body[data-theme="peak"] .meal-row,
+body[data-theme="peak"] .day,
+body[data-theme="peak"] .theme-option,
+body[data-theme="peak"] .chart-total,
+body[data-theme="seed"] .panel,
+body[data-theme="seed"] .metric-card,
+body[data-theme="seed"] .meal-row,
+body[data-theme="seed"] .day,
+body[data-theme="seed"] .theme-option,
+body[data-theme="seed"] .chart-total {
+  border-width: 1px;
+}
+
+body[data-theme="peak"] .day,
+body[data-theme="seed"] .day {
+  border-radius: 7px;
+}
+
+body[data-theme="peak"] .day .num,
+body[data-theme="seed"] .day .num {
+  font-size: 15px;
+}
+
+body[data-theme="peak"] .day .kcal,
+body[data-theme="peak"] .day .burn,
+body[data-theme="seed"] .day .kcal,
+body[data-theme="seed"] .day .burn {
+  font-size: 10.5px;
+}
+
+body[data-theme="peak"] .day.cheatday .kcal,
+body[data-theme="seed"] .day.cheatday .kcal {
+  font-size: 10px;
+  letter-spacing: 0;
+}
+
+body[data-theme="peak"] .calendar-panel,
+body[data-theme="stripe"] .calendar-panel,
+body[data-theme="seed"] .calendar-panel {
+  padding: 16px 14px;
+}
+
+body[data-theme="peak"] .weekdays,
+body[data-theme="stripe"] .weekdays,
+body[data-theme="seed"] .weekdays {
+  margin-top: 16px;
+}
+
+body[data-theme="seed"] .topbar {
+  margin: 0 -14px 16px;
+  border-width: 0 0 1px;
+  border-radius: 0;
+  padding: 20px 20px 22px;
+}
+
+body[data-theme="seed"] .main-tabs,
+body[data-theme="seed"] .segmented {
+  border-radius: 14px;
+}
+
+body[data-theme="seed"] .main-tabs button {
+  min-height: 50px;
+  border-radius: 10px;
+}
+
+body[data-theme="seed"] .main-tabs button.active {
+  min-height: 50px;
+}
+
+body[data-theme="seed"] .theme-option {
+  border-radius: 14px;
+}
+
+body[data-theme="seed"] .badge,
+body[data-theme="seed"] .icon-button,
+body[data-theme="seed"] .cheat-toggle,
+body[data-theme="seed"] .expenditure-toggle,
+body[data-theme="seed"] .primary,
+body[data-theme="seed"] .secondary {
+  border-radius: 10px;
+}
+
+body[data-theme="seed"] .main-tabs {
+  background: #fffdf4;
+}
+
+body[data-theme="peak"] .calendar .day.has-data {
+  background: #f6f7f5;
+}
+
+body[data-theme="peak"] .calendar .day.deficit-day {
+  background: #dff3ea;
+  border-color: #26785c;
+}
+
+body[data-theme="peak"] .calendar .day.profit-day {
+  background: #ffe2e4;
+  border-color: #c7343e;
+}
+
+body[data-theme="peak"] .calendar .day.balanced-day {
+  background: #fff4d8;
+  border-color: #8a6b20;
+}
+
+body[data-theme="peak"] .calendar .day.cheatday {
+  background: #eee9ff;
+  border-color: #6750a4;
+}
+
+body[data-theme="peak"] .calendar .day.selected {
+  background: #161616;
+  border-color: #161616;
+}
+
+body[data-theme="stripe"] .calendar .day.has-data {
+  background: #f8fbff;
+}
+
+body[data-theme="stripe"] .calendar .day.deficit-day {
+  background: #dff8ef;
+  border-color: #00a676;
+}
+
+body[data-theme="stripe"] .calendar .day.profit-day {
+  background: #ffe3d6;
+  border-color: #ff6b35;
+}
+
+body[data-theme="stripe"] .calendar .day.balanced-day {
+  background: #edf0ff;
+  border-color: #635bff;
+}
+
+body[data-theme="stripe"] .calendar .day.cheatday {
+  background: #f3e7ff;
+  border-color: #8c6cff;
+}
+
+body[data-theme="stripe"] .calendar .day.selected {
+  background: #635bff;
+  border-color: #635bff;
+}
+
+body[data-theme="seed"] .calendar .day.has-data {
+  background: #fbfaf0;
+}
+
+body[data-theme="seed"] .calendar .day.deficit-day {
+  background: #dff7b0;
+  border-color: #4f7e22;
+}
+
+body[data-theme="seed"] .calendar .day.profit-day {
+  background: #ffd8c7;
+  border-color: #c45a2c;
+}
+
+body[data-theme="seed"] .calendar .day.balanced-day {
+  background: #dbeafe;
+  border-color: #4d6e9d;
+}
+
+body[data-theme="seed"] .calendar .day.cheatday {
+  background: #eadfff;
+  border-color: #7356a5;
+}
+
+body[data-theme="seed"] .calendar .day.selected {
+  background: #214615;
+  border-color: #214615;
 }
 
 .loading-overlay {
