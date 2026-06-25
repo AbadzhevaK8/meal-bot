@@ -10,6 +10,7 @@ const THEMES = {
   stripe: "Stripe",
   seed: "Seed",
   calendly: "Calendly",
+  duolingo: "Duolingo",
 };
 if (tg) {
   tg.ready();

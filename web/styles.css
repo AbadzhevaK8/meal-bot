@@ -167,6 +167,34 @@ body[data-theme="calendly"] {
   --macro-carbs: #006bff;
 }
 
+body[data-theme="duolingo"] {
+  --color-midnight-ink: #3c3c3c;
+  --color-canvas-white: #ffffff;
+  --color-charcoal-border: #e5e5e5;
+  --color-shadow-base: #3f8f01;
+  --color-pale-ash: #f7f7f7;
+  --color-accent-green: #58cc02;
+  --color-card-saffron: #fff3b0;
+  --color-card-lavender: #efe6ff;
+  --color-card-mint: #d7ffb8;
+  --color-card-pink: #ffe3f1;
+  --color-highlight-yellow: #ffc700;
+  --gradient-lime-spritz: linear-gradient(180deg, #d7ffb8, #ffffff);
+  --gradient-sky-breeze: linear-gradient(180deg, #ffffff, #f7f7f7);
+  --shadow-subtle: 0 4px 0 #e5e5e5;
+  --shadow-subtle-2: 0 4px 0 #e5e5e5;
+  --shadow-subtle-3: 0 2px 0 #e5e5e5;
+  --color-on-accent: #ffffff;
+  --chart-intake: #3c3c3c;
+  --chart-expense: #58cc02;
+  --chart-deficit: #58cc02;
+  --chart-surplus: #ff4b4b;
+  --chart-grid: rgba(119, 119, 119, 0.18);
+  --macro-protein: #58cc02;
+  --macro-fat: #ffc700;
+  --macro-carbs: #1cb0f6;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -2032,6 +2060,184 @@ body[data-theme="calendly"] .calendar .day.selected {
 body[data-theme="calendly"] .calendar .day.selected .kcal,
 body[data-theme="calendly"] .calendar .day.selected .burn {
   color: rgba(255, 255, 255, 0.78);
+}
+
+body[data-theme="duolingo"] {
+  background: #ffffff;
+  color: #3c3c3c;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+body[data-theme="duolingo"] .topbar {
+  background: #ffffff;
+  border-bottom: 2px solid #e5e5e5;
+}
+
+body[data-theme="duolingo"] h1,
+body[data-theme="duolingo"] h2 {
+  color: #58cc02;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-wrap: balance;
+}
+
+body[data-theme="duolingo"] .eyebrow,
+body[data-theme="duolingo"] .weekdays,
+body[data-theme="duolingo"] .metric-card span,
+body[data-theme="duolingo"] .metric-card small,
+body[data-theme="duolingo"] .target-row span,
+body[data-theme="duolingo"] .target-meta,
+body[data-theme="duolingo"] .meal-row span,
+body[data-theme="duolingo"] .empty-state {
+  color: #777777;
+}
+
+body[data-theme="duolingo"] .panel,
+body[data-theme="duolingo"] .metric-card,
+body[data-theme="duolingo"] .theme-option,
+body[data-theme="duolingo"] .meal-row,
+body[data-theme="duolingo"] .day,
+body[data-theme="duolingo"] .chart-total {
+  border: 2px solid #e5e5e5;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+body[data-theme="duolingo"] .main-tabs,
+body[data-theme="duolingo"] .segmented,
+body[data-theme="duolingo"] .badge,
+body[data-theme="duolingo"] .icon-button,
+body[data-theme="duolingo"] .cheat-toggle,
+body[data-theme="duolingo"] .expenditure-toggle,
+body[data-theme="duolingo"] .primary,
+body[data-theme="duolingo"] .secondary {
+  border: 2px solid #e5e5e5;
+  border-radius: 12px;
+  box-shadow: 0 4px 0 #e5e5e5;
+}
+
+body[data-theme="duolingo"] .main-tabs {
+  background: #ffffff;
+  gap: 8px;
+  padding: 6px;
+}
+
+body[data-theme="duolingo"] .main-tabs button,
+body[data-theme="duolingo"] .segmented button {
+  min-height: 50px;
+  border-radius: 10px;
+  color: #777777;
+  font-weight: 800;
+}
+
+body[data-theme="duolingo"] .main-tabs button.active,
+body[data-theme="duolingo"] .segmented button.active,
+body[data-theme="duolingo"] .theme-option.active,
+body[data-theme="duolingo"] .day.selected,
+body[data-theme="duolingo"] .primary,
+body[data-theme="duolingo"] .toast {
+  border-color: #58cc02;
+  background: #58cc02;
+  color: #ffffff;
+  box-shadow: 0 4px 0 #3f8f01;
+}
+
+body[data-theme="duolingo"] .secondary,
+body[data-theme="duolingo"] .expenditure-toggle,
+body[data-theme="duolingo"] .cheat-toggle {
+  color: #1cb0f6;
+}
+
+body[data-theme="duolingo"] .metric-card:nth-child(1),
+body[data-theme="duolingo"] .nutrition-panel,
+body[data-theme="duolingo"] .chart-total.deficit {
+  background: #d7ffb8;
+  border-color: #58cc02;
+}
+
+body[data-theme="duolingo"] .chart-total span,
+body[data-theme="duolingo"] .chart-total strong {
+  color: #3c3c3c;
+}
+
+body[data-theme="duolingo"] .metric-card:nth-child(2),
+body[data-theme="duolingo"] .meal-row.macro-protein {
+  background: #ddf4ff;
+  border-color: #1cb0f6;
+}
+
+body[data-theme="duolingo"] .metric-card:nth-child(3),
+body[data-theme="duolingo"] .meal-row.macro-fat,
+body[data-theme="duolingo"] .chart-total.surplus {
+  background: #fff3b0;
+  border-color: #ffc700;
+}
+
+body[data-theme="duolingo"] .metric-card:nth-child(4),
+body[data-theme="duolingo"] .meal-row.macro-carbs {
+  background: #efe6ff;
+  border-color: #a570ff;
+}
+
+body[data-theme="duolingo"] .chart-panel,
+body[data-theme="duolingo"] .settings-panel,
+body[data-theme="duolingo"] .chart-total.neutral {
+  background: #f7f7f7;
+}
+
+body[data-theme="duolingo"] .calendar-panel {
+  padding: 16px 14px;
+}
+
+body[data-theme="duolingo"] .calendar .day {
+  border-width: 2px;
+}
+
+body[data-theme="duolingo"] .calendar .day.has-data {
+  background: #ffffff;
+  border-color: #e5e5e5;
+}
+
+body[data-theme="duolingo"] .calendar .day.deficit-day {
+  background: #d7ffb8;
+  border-color: #58cc02;
+}
+
+body[data-theme="duolingo"] .calendar .day.profit-day {
+  background: #ffdfe8;
+  border-color: #cc348d;
+}
+
+body[data-theme="duolingo"] .calendar .day.balanced-day {
+  background: #ddf4ff;
+  border-color: #1cb0f6;
+}
+
+body[data-theme="duolingo"] .calendar .day.cheatday {
+  background: #fff3b0;
+  border-color: #ffc700;
+}
+
+body[data-theme="duolingo"] .calendar .day.selected {
+  border-color: #58cc02;
+  background: #58cc02;
+  color: #ffffff;
+}
+
+body[data-theme="duolingo"] .calendar .day .kcal,
+body[data-theme="duolingo"] .calendar .day .burn {
+  color: #777777;
+}
+
+body[data-theme="duolingo"] .calendar .day.selected .kcal,
+body[data-theme="duolingo"] .calendar .day.selected .burn {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+body[data-theme="duolingo"] .theme-swatches i {
+  border-width: 2px;
 }
 
 .loading-overlay {
