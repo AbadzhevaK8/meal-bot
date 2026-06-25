@@ -9,6 +9,7 @@ const THEMES = {
   peak: "Peak",
   stripe: "Stripe",
   seed: "Seed",
+  calendly: "Calendly",
 };
 if (tg) {
   tg.ready();

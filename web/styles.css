@@ -139,6 +139,34 @@ body[data-theme="seed"] {
   --macro-carbs: #7fa915;
 }
 
+body[data-theme="calendly"] {
+  --color-midnight-ink: #0b3558;
+  --color-canvas-white: #ffffff;
+  --color-charcoal-border: #d4e0ed;
+  --color-shadow-base: #476788;
+  --color-pale-ash: #f8f9fb;
+  --color-accent-green: #006bff;
+  --color-card-saffron: #fff4db;
+  --color-card-lavender: #f0eaff;
+  --color-card-mint: #e8f7ef;
+  --color-card-pink: #ffe9f7;
+  --color-highlight-yellow: #ffa600;
+  --gradient-lime-spritz: linear-gradient(180deg, #ffffff, #e7edf6);
+  --gradient-sky-breeze: radial-gradient(circle at 92% 10%, rgba(229, 92, 255, 0.18), transparent 22rem), radial-gradient(circle at 72% 0%, rgba(255, 166, 0, 0.14), transparent 18rem), linear-gradient(180deg, #ffffff, #f8f9fb);
+  --shadow-subtle: 0 0 0 1px rgba(71, 103, 136, 0.10), 0 4px 5px rgba(71, 103, 136, 0.04), 0 8px 15px rgba(71, 103, 136, 0.03);
+  --shadow-subtle-2: 0 0 0 1px rgba(71, 103, 136, 0.10), 0 12px 30px rgba(71, 103, 136, 0.10);
+  --shadow-subtle-3: 0 0 0 1px rgba(71, 103, 136, 0.08), 0 1px 3px rgba(71, 103, 136, 0.06);
+  --color-on-accent: #ffffff;
+  --chart-intake: #0b3558;
+  --chart-expense: #006bff;
+  --chart-deficit: #0f8b6f;
+  --chart-surplus: #d6543f;
+  --chart-grid: rgba(71, 103, 136, 0.16);
+  --macro-protein: #0f8b6f;
+  --macro-fat: #ffa600;
+  --macro-carbs: #006bff;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -1853,6 +1881,157 @@ body[data-theme="seed"] .calendar .day.cheatday {
 body[data-theme="seed"] .calendar .day.selected {
   background: #214615;
   border-color: #214615;
+}
+
+body[data-theme="calendly"] {
+  background: #f8f9fb;
+  font-weight: 500;
+}
+
+body[data-theme="calendly"] .topbar {
+  background:
+    radial-gradient(circle at 90% 0%, rgba(229, 92, 255, 0.16), transparent 18rem),
+    radial-gradient(circle at 72% 18%, rgba(255, 166, 0, 0.12), transparent 16rem),
+    #ffffff;
+  border-bottom-color: #e6e6e6;
+}
+
+body[data-theme="calendly"] h1,
+body[data-theme="calendly"] h2 {
+  color: #0b3558;
+  font-weight: 700;
+  text-wrap: balance;
+}
+
+body[data-theme="calendly"] .eyebrow,
+body[data-theme="calendly"] .weekdays,
+body[data-theme="calendly"] .chart-total span,
+body[data-theme="calendly"] .metric-card span,
+body[data-theme="calendly"] .metric-card small,
+body[data-theme="calendly"] .empty-state,
+body[data-theme="calendly"] .target-row span,
+body[data-theme="calendly"] .target-meta,
+body[data-theme="calendly"] .meal-row span,
+body[data-theme="calendly"] .day .kcal,
+body[data-theme="calendly"] .day .burn {
+  color: #476788;
+}
+
+body[data-theme="calendly"] .panel,
+body[data-theme="calendly"] .metric-card,
+body[data-theme="calendly"] .theme-option,
+body[data-theme="calendly"] .meal-row,
+body[data-theme="calendly"] .day,
+body[data-theme="calendly"] .chart-total {
+  border-color: transparent;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: var(--shadow-subtle);
+}
+
+body[data-theme="calendly"] .main-tabs,
+body[data-theme="calendly"] .segmented,
+body[data-theme="calendly"] .badge,
+body[data-theme="calendly"] .icon-button,
+body[data-theme="calendly"] .cheat-toggle,
+body[data-theme="calendly"] .expenditure-toggle,
+body[data-theme="calendly"] .primary,
+body[data-theme="calendly"] .secondary {
+  border-color: #d4e0ed;
+  border-radius: 4px;
+  box-shadow: var(--shadow-subtle-3);
+}
+
+body[data-theme="calendly"] .main-tabs {
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+body[data-theme="calendly"] .main-tabs button,
+body[data-theme="calendly"] .segmented button {
+  min-height: 48px;
+  border-radius: 4px;
+  color: #476788;
+}
+
+body[data-theme="calendly"] .main-tabs button.active,
+body[data-theme="calendly"] .segmented button.active,
+body[data-theme="calendly"] .theme-option.active,
+body[data-theme="calendly"] .day.selected,
+body[data-theme="calendly"] .primary,
+body[data-theme="calendly"] .toast {
+  background: #006bff;
+  color: #ffffff;
+}
+
+body[data-theme="calendly"] .metric-card:nth-child(1),
+body[data-theme="calendly"] .nutrition-panel {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(0, 153, 255, 0.12), transparent 42%),
+    linear-gradient(180deg, #ffffff, #e7edf6);
+}
+
+body[data-theme="calendly"] .metric-card:nth-child(2),
+body[data-theme="calendly"] .meal-row.macro-protein,
+body[data-theme="calendly"] .chart-total.deficit {
+  background: #e8f7ef;
+}
+
+body[data-theme="calendly"] .metric-card:nth-child(3),
+body[data-theme="calendly"] .meal-row.macro-fat,
+body[data-theme="calendly"] .chart-total.surplus {
+  background: #fff4db;
+}
+
+body[data-theme="calendly"] .metric-card:nth-child(4),
+body[data-theme="calendly"] .meal-row.macro-carbs {
+  background: #e7edf6;
+}
+
+body[data-theme="calendly"] .chart-panel,
+body[data-theme="calendly"] .settings-panel,
+body[data-theme="calendly"] .chart-total.neutral {
+  background: #f8f9fb;
+}
+
+body[data-theme="calendly"] .calendar-panel {
+  padding: 16px 14px;
+}
+
+body[data-theme="calendly"] .calendar .day.has-data {
+  background: #ffffff;
+  border-color: transparent;
+}
+
+body[data-theme="calendly"] .calendar .day.deficit-day {
+  background: #e8f7ef;
+  border-color: #8bd6bd;
+}
+
+body[data-theme="calendly"] .calendar .day.profit-day {
+  background: #ffe8dc;
+  border-color: #ff9b7d;
+}
+
+body[data-theme="calendly"] .calendar .day.balanced-day {
+  background: #e7edf6;
+  border-color: #a6bbd1;
+}
+
+body[data-theme="calendly"] .calendar .day.cheatday {
+  background: #f0eaff;
+  border-color: #b79cff;
+}
+
+body[data-theme="calendly"] .calendar .day.selected {
+  background: #006bff;
+  border-color: #006bff;
+  box-shadow: 0 8px 18px rgba(0, 107, 255, 0.22);
+}
+
+body[data-theme="calendly"] .calendar .day.selected .kcal,
+body[data-theme="calendly"] .calendar .day.selected .burn {
+  color: rgba(255, 255, 255, 0.78);
 }
 
 .loading-overlay {
