@@ -56,87 +56,87 @@ body[data-theme="authkit"] {
 }
 
 body[data-theme="peak"] {
-  --color-midnight-ink: #1a211e;
+  --color-midnight-ink: #161616;
   --color-canvas-white: #ffffff;
-  --color-charcoal-border: #1a211e;
-  --color-shadow-base: #1a211e;
-  --color-pale-ash: #eef1f0;
-  --color-accent-green: #1a211e;
-  --color-card-saffron: #ffffff;
-  --color-card-lavender: #eef1f0;
-  --color-card-mint: #ffffff;
-  --color-card-pink: #eef1f0;
-  --color-highlight-yellow: #cc2e39;
-  --gradient-lime-spritz: linear-gradient(180deg, #ffffff, #eef1f0);
-  --gradient-sky-breeze: linear-gradient(180deg, #0c0c0c, #1a211e);
+  --color-charcoal-border: #2f3130;
+  --color-shadow-base: #161616;
+  --color-pale-ash: #f2f3f1;
+  --color-accent-green: #161616;
+  --color-card-saffron: #fff4e3;
+  --color-card-lavender: #eef0ef;
+  --color-card-mint: #edf6f1;
+  --color-card-pink: #ffe8ea;
+  --color-highlight-yellow: #c7343e;
+  --gradient-lime-spritz: linear-gradient(180deg, #ffffff, #edf6f1);
+  --gradient-sky-breeze: linear-gradient(180deg, #111111, #262827);
   --shadow-subtle: none;
   --shadow-subtle-2: none;
   --shadow-subtle-3: none;
   --color-on-accent: #ffffff;
-  --chart-intake: #1a211e;
-  --chart-expense: #606562;
-  --chart-deficit: #1a211e;
-  --chart-surplus: #cc2e39;
-  --chart-grid: rgba(26, 33, 30, 0.16);
-  --macro-protein: #1a211e;
-  --macro-fat: #606562;
-  --macro-carbs: #cc2e39;
+  --chart-intake: #161616;
+  --chart-expense: #6f7672;
+  --chart-deficit: #0f6b4d;
+  --chart-surplus: #c7343e;
+  --chart-grid: rgba(47, 49, 48, 0.18);
+  --macro-protein: #0f6b4d;
+  --macro-fat: #8a6b20;
+  --macro-carbs: #c7343e;
 }
 
 body[data-theme="stripe"] {
-  --color-midnight-ink: #061b31;
-  --color-canvas-white: #e5edf5;
-  --color-charcoal-border: #50617a;
+  --color-midnight-ink: #0a2540;
+  --color-canvas-white: #ffffff;
+  --color-charcoal-border: #425466;
   --color-shadow-base: #32325d;
-  --color-pale-ash: #f8fafd;
-  --color-accent-green: #533afd;
-  --color-card-saffron: #ffffff;
-  --color-card-lavender: #e2e4ff;
-  --color-card-mint: #f8fafd;
-  --color-card-pink: #d6d9fc;
-  --color-highlight-yellow: #ff6118;
-  --gradient-lime-spritz: linear-gradient(180deg, #ffffff, #e2e4ff);
-  --gradient-sky-breeze: radial-gradient(circle at 92% 12%, #ff6118 0, #f44bcc 28%, #533afd 54%, transparent 72%), linear-gradient(180deg, #f8fafd, #e5edf5);
-  --shadow-subtle: rgba(23, 23, 23, 0.06) 0 3px 6px 0;
-  --shadow-subtle-2: rgba(50, 50, 93, 0.12) 0 16px 32px 0;
-  --shadow-subtle-3: rgba(23, 23, 23, 0.06) 0 3px 6px 0;
+  --color-pale-ash: #f6f9fc;
+  --color-accent-green: #635bff;
+  --color-card-saffron: #fff7ec;
+  --color-card-lavender: #f0f2ff;
+  --color-card-mint: #e9fbf5;
+  --color-card-pink: #ffeaf5;
+  --color-highlight-yellow: #ff6b35;
+  --gradient-lime-spritz: linear-gradient(180deg, #ffffff, #e9fbf5);
+  --gradient-sky-breeze: linear-gradient(180deg, #ffffff 0%, #f6f9fc 58%, #eef4ff 100%);
+  --shadow-subtle: 0 2px 7px rgba(50, 50, 93, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-subtle-2: 0 16px 34px rgba(50, 50, 93, 0.14), 0 5px 14px rgba(0, 0, 0, 0.06);
+  --shadow-subtle-3: 0 1px 3px rgba(50, 50, 93, 0.09);
   --color-on-accent: #ffffff;
-  --chart-intake: #061b31;
-  --chart-expense: #533afd;
-  --chart-deficit: #533afd;
-  --chart-surplus: #ff6118;
-  --chart-grid: rgba(80, 97, 122, 0.18);
-  --macro-protein: #533afd;
-  --macro-fat: #ff6118;
-  --macro-carbs: #8087ff;
+  --chart-intake: #0a2540;
+  --chart-expense: #635bff;
+  --chart-deficit: #00a676;
+  --chart-surplus: #ff6b35;
+  --chart-grid: rgba(66, 84, 102, 0.18);
+  --macro-protein: #00a676;
+  --macro-fat: #ff6b35;
+  --macro-carbs: #635bff;
 }
 
 body[data-theme="seed"] {
-  --color-midnight-ink: #1c3a13;
-  --color-canvas-white: #fcfcf7;
-  --color-charcoal-border: #1c3a13;
-  --color-shadow-base: #1c3a13;
-  --color-pale-ash: #eeeee9;
-  --color-accent-green: #1c3a13;
-  --color-card-saffron: #eeeee9;
-  --color-card-lavender: #fcfcf7;
-  --color-card-mint: #d3fa99;
-  --color-card-pink: #c4c7c4;
-  --color-highlight-yellow: #d3fa99;
-  --gradient-lime-spritz: linear-gradient(180deg, #d3fa99, #eeeee9);
-  --gradient-sky-breeze: linear-gradient(180deg, #fcfcf7, #d3fa99);
+  --color-midnight-ink: #17320f;
+  --color-canvas-white: #fffdf4;
+  --color-charcoal-border: #365129;
+  --color-shadow-base: #17320f;
+  --color-pale-ash: #f1efe4;
+  --color-accent-green: #214615;
+  --color-card-saffron: #fff4cf;
+  --color-card-lavender: #edf0e4;
+  --color-card-mint: #d9f7a3;
+  --color-card-pink: #e6eadb;
+  --color-highlight-yellow: #b9ea4f;
+  --gradient-lime-spritz: linear-gradient(180deg, #eefcc7, #fffdf4);
+  --gradient-sky-breeze: linear-gradient(180deg, #fffdf4 0%, #f1efe4 72%, #e5f5bd 100%);
   --shadow-subtle: none;
   --shadow-subtle-2: none;
   --shadow-subtle-3: none;
-  --color-on-accent: #fcfcf7;
-  --chart-intake: #1c3a13;
-  --chart-expense: #7a9a62;
-  --chart-deficit: #1c3a13;
-  --chart-surplus: #7a9a62;
-  --chart-grid: rgba(28, 58, 19, 0.18);
-  --macro-protein: #1c3a13;
-  --macro-fat: #7a9a62;
-  --macro-carbs: #d3fa99;
+  --color-on-accent: #fffdf4;
+  --chart-intake: #17320f;
+  --chart-expense: #6f8d4d;
+  --chart-deficit: #214615;
+  --chart-surplus: #a06d12;
+  --chart-grid: rgba(54, 81, 41, 0.18);
+  --macro-protein: #214615;
+  --macro-fat: #a06d12;
+  --macro-carbs: #7fa915;
 }
 
 * {
@@ -1407,6 +1407,264 @@ body[data-theme="seed"] .day.deficit-day {
 body[data-theme="seed"] .meal-row.macro-fat,
 body[data-theme="seed"] .day.profit-day {
   background: #c4c7c4;
+}
+
+body[data-theme="peak"] .topbar {
+  background: linear-gradient(180deg, #111111, #252827);
+  border-bottom: 1px solid #111111;
+}
+
+body[data-theme="peak"] .topbar .icon-button {
+  border-color: rgba(255, 255, 255, 0.72);
+  background: transparent;
+  color: #ffffff;
+}
+
+body[data-theme="peak"] .panel,
+body[data-theme="peak"] .metric-card,
+body[data-theme="peak"] .theme-option,
+body[data-theme="peak"] .meal-row,
+body[data-theme="peak"] .day,
+body[data-theme="peak"] .chart-total {
+  border-color: #2f3130;
+  box-shadow: none;
+}
+
+body[data-theme="peak"] .metric-card:nth-child(1) {
+  background: #161616;
+  color: #ffffff;
+}
+
+body[data-theme="peak"] .metric-card:nth-child(1) span,
+body[data-theme="peak"] .metric-card:nth-child(1) strong,
+body[data-theme="peak"] .metric-card:nth-child(1) small {
+  color: #ffffff;
+}
+
+body[data-theme="peak"] .metric-card:nth-child(2),
+body[data-theme="peak"] .meal-row.macro-protein,
+body[data-theme="peak"] .day.deficit-day,
+body[data-theme="peak"] .chart-total.deficit {
+  background: #edf6f1;
+}
+
+body[data-theme="peak"] .metric-card:nth-child(3),
+body[data-theme="peak"] .meal-row.macro-fat,
+body[data-theme="peak"] .day.profit-day {
+  background: #fff4e3;
+}
+
+body[data-theme="peak"] .metric-card:nth-child(4),
+body[data-theme="peak"] .meal-row.macro-carbs,
+body[data-theme="peak"] .day.cheatday,
+body[data-theme="peak"] .chart-total.surplus {
+  background: #ffe8ea;
+}
+
+body[data-theme="peak"] .main-tabs,
+body[data-theme="peak"] .chart-panel,
+body[data-theme="peak"] .settings-panel,
+body[data-theme="peak"] .day.has-data,
+body[data-theme="peak"] .meal-row.macro-empty,
+body[data-theme="peak"] .chart-total.neutral {
+  background: #f2f3f1;
+}
+
+body[data-theme="peak"] .toast {
+  border-color: #161616;
+  background: #c7343e;
+  color: #ffffff;
+}
+
+body[data-theme="peak"] .day.selected {
+  background: #161616;
+  color: #ffffff;
+  box-shadow: inset 0 0 0 2px #161616;
+}
+
+body[data-theme="peak"] .day.selected .kcal,
+body[data-theme="peak"] .day.selected .burn {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+body[data-theme="stripe"] {
+  background:
+    radial-gradient(circle at 92% 0%, rgba(255, 107, 53, 0.14), transparent 18rem),
+    radial-gradient(circle at 88% 12%, rgba(99, 91, 255, 0.16), transparent 24rem),
+    #f6f9fc;
+}
+
+body[data-theme="stripe"] .topbar {
+  background:
+    radial-gradient(circle at 96% 10%, rgba(255, 107, 53, 0.22), transparent 34%),
+    radial-gradient(circle at 74% 0%, rgba(99, 91, 255, 0.18), transparent 44%),
+    #ffffff;
+  border-color: rgba(66, 84, 102, 0.14);
+}
+
+body[data-theme="stripe"] h1,
+body[data-theme="stripe"] h2 {
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+body[data-theme="stripe"] .topbar h1 {
+  background: linear-gradient(90deg, #635bff, #0a2540);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+body[data-theme="stripe"] .panel,
+body[data-theme="stripe"] .metric-card,
+body[data-theme="stripe"] .theme-option,
+body[data-theme="stripe"] .meal-row,
+body[data-theme="stripe"] .day,
+body[data-theme="stripe"] .chart-total {
+  border-color: rgba(66, 84, 102, 0.18);
+  background: #ffffff;
+}
+
+body[data-theme="stripe"] .metric-card:nth-child(1),
+body[data-theme="stripe"] .nutrition-panel {
+  background:
+    radial-gradient(circle at 100% 100%, rgba(255, 107, 53, 0.16), transparent 46%),
+    linear-gradient(180deg, #ffffff, #f0f2ff);
+}
+
+body[data-theme="stripe"] .metric-card:nth-child(2),
+body[data-theme="stripe"] .meal-row.macro-protein,
+body[data-theme="stripe"] .day.deficit-day,
+body[data-theme="stripe"] .chart-total.deficit {
+  background: #e9fbf5;
+}
+
+body[data-theme="stripe"] .metric-card:nth-child(3),
+body[data-theme="stripe"] .meal-row.macro-fat,
+body[data-theme="stripe"] .day.profit-day {
+  background: #fff7ec;
+}
+
+body[data-theme="stripe"] .metric-card:nth-child(4),
+body[data-theme="stripe"] .meal-row.macro-carbs,
+body[data-theme="stripe"] .day.cheatday,
+body[data-theme="stripe"] .chart-total.surplus {
+  background: #f0f2ff;
+}
+
+body[data-theme="stripe"] .chart-panel,
+body[data-theme="stripe"] .settings-panel,
+body[data-theme="stripe"] .day.has-data,
+body[data-theme="stripe"] .meal-row.macro-empty,
+body[data-theme="stripe"] .chart-total.neutral {
+  background: #f6f9fc;
+}
+
+body[data-theme="stripe"] .main-tabs button.active,
+body[data-theme="stripe"] .segmented button.active,
+body[data-theme="stripe"] .theme-option.active,
+body[data-theme="stripe"] .day.selected,
+body[data-theme="stripe"] .primary,
+body[data-theme="stripe"] .toast {
+  background: #635bff;
+  color: #ffffff;
+}
+
+body[data-theme="stripe"] .day.selected {
+  box-shadow: inset 0 0 0 2px #635bff;
+}
+
+body[data-theme="stripe"] .day.selected .kcal,
+body[data-theme="stripe"] .day.selected .burn {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+body[data-theme="seed"] {
+  background: #fffdf4;
+}
+
+body[data-theme="seed"] .topbar {
+  border-color: #365129;
+  background: linear-gradient(180deg, #fffdf4, #f7f3df);
+}
+
+body[data-theme="seed"] h1,
+body[data-theme="seed"] h2 {
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+body[data-theme="seed"] .eyebrow {
+  color: #365129;
+  letter-spacing: 0;
+}
+
+body[data-theme="seed"] .panel,
+body[data-theme="seed"] .metric-card,
+body[data-theme="seed"] .meal-row,
+body[data-theme="seed"] .day,
+body[data-theme="seed"] .chart-total {
+  border-color: #365129;
+}
+
+body[data-theme="seed"] .panel,
+body[data-theme="seed"] .theme-option,
+body[data-theme="seed"] .metric-card:nth-child(n) {
+  background: #fffdf4;
+}
+
+body[data-theme="seed"] .metric-card:nth-child(1),
+body[data-theme="seed"] .nutrition-panel,
+body[data-theme="seed"] .meal-row.macro-carbs,
+body[data-theme="seed"] .day.cheatday,
+body[data-theme="seed"] .toast {
+  background: #d9f7a3;
+  color: #17320f;
+}
+
+body[data-theme="seed"] .metric-card:nth-child(2),
+body[data-theme="seed"] .meal-row.macro-protein,
+body[data-theme="seed"] .day.deficit-day,
+body[data-theme="seed"] .chart-total.deficit {
+  background: #eefcc7;
+}
+
+body[data-theme="seed"] .metric-card:nth-child(3),
+body[data-theme="seed"] .meal-row.macro-fat,
+body[data-theme="seed"] .day.profit-day,
+body[data-theme="seed"] .chart-total.surplus {
+  background: #fff4cf;
+}
+
+body[data-theme="seed"] .metric-card:nth-child(4),
+body[data-theme="seed"] .chart-total.neutral {
+  background: #edf0e4;
+}
+
+body[data-theme="seed"] .main-tabs,
+body[data-theme="seed"] .chart-panel,
+body[data-theme="seed"] .settings-panel,
+body[data-theme="seed"] .day.has-data,
+body[data-theme="seed"] .meal-row.macro-empty {
+  background: #f1efe4;
+}
+
+body[data-theme="seed"] .main-tabs button.active,
+body[data-theme="seed"] .segmented button.active,
+body[data-theme="seed"] .theme-option.active,
+body[data-theme="seed"] .day.selected,
+body[data-theme="seed"] .primary {
+  background: #214615;
+  color: #fffdf4;
+}
+
+body[data-theme="seed"] .day.selected {
+  box-shadow: inset 0 0 0 2px #214615;
+}
+
+body[data-theme="seed"] .day.selected .kcal,
+body[data-theme="seed"] .day.selected .burn {
+  color: rgba(255, 253, 244, 0.76);
 }
 
 .loading-overlay {
